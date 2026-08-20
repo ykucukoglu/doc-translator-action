@@ -48,7 +48,7 @@ inputs:
     required: false
     default: '.doc-terms.json'
   config-path:
-    description: 'Path to an optional JSON config file supplying any of source-path, include-glob, output-path-template, base-branch, fail-on-stale-translations, max-parallel-requests, llm-provider, gemini-model, openai-model, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file.'
+    description: 'Path to an optional JSON config file supplying any of target-languages, source-path, include-glob, glossary-path, output-path-template, base-branch, fail-on-stale-translations, max-parallel-requests, llm-provider, gemini-model, openai-model, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file.'
     required: false
   output-path-template:
     description: 'Template for translated file output paths. Supports {lang}, {relativePath}, {dir}, {filename}, {ext} - e.g. "{dir}/{filename}.{lang}.{ext}" for MkDocs/Docusaurus-style co-located naming.'

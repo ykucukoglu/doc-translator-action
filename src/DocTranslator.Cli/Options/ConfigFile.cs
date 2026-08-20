@@ -10,11 +10,17 @@ namespace DocTranslator.Cli.Options;
 /// </summary>
 public sealed class ConfigFile
 {
+    [JsonPropertyName("targetLanguages")]
+    public string? TargetLanguages { get; set; }
+
     [JsonPropertyName("sourcePath")]
     public string? SourcePath { get; set; }
 
     [JsonPropertyName("includeGlob")]
     public string? IncludeGlob { get; set; }
+
+    [JsonPropertyName("glossaryPath")]
+    public string? GlossaryPath { get; set; }
 
     [JsonPropertyName("outputPathTemplate")]
     public string? OutputPathTemplate { get; set; }

@@ -56,7 +56,7 @@ public static class ActionOptionsBinder
                 "The 'github-token' input (or --github-token) is required when pr-mode is enabled. "
                 + $"(resolved: pr-mode='{ReadInput("pr-mode") ?? "<unset>"}', dry-run='{ReadInput("dry-run") ?? "<unset>"}')"));
 
-        var targetLanguagesRaw = cli.TargetLanguages ?? ReadInput("target-languages") ?? "tr";
+        var targetLanguagesRaw = cli.TargetLanguages ?? ReadInput("target-languages") ?? config?.TargetLanguages ?? "tr";
 
         var llmProvider = cli.UseFakeLlm == true ? "fake" : ReadInput("llm-provider") ?? config?.LlmProvider ?? "auto";
 
@@ -74,7 +74,7 @@ public static class ActionOptionsBinder
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
             SourcePath = cli.SourcePath ?? ReadInput("source-path") ?? config?.SourcePath ?? "docs",
             IncludeGlob = cli.IncludeGlob ?? ReadInput("include-glob") ?? config?.IncludeGlob ?? "**/*.md",
-            GlossaryPath = cli.GlossaryPath ?? ReadInput("glossary-path") ?? ".doc-terms.json",
+            GlossaryPath = cli.GlossaryPath ?? ReadInput("glossary-path") ?? config?.GlossaryPath ?? ".doc-terms.json",
             OutputPathTemplate = cli.OutputPathTemplate ?? ReadInput("output-path-template") ?? config?.OutputPathTemplate ?? "docs/{lang}/{relativePath}",
             BaseBranch = cli.BaseBranch ?? ReadInput("base-branch") ?? config?.BaseBranch ?? NullIfEmpty(Environment.GetEnvironmentVariable("GITHUB_BASE_REF")),
             DryRun = dryRun,
