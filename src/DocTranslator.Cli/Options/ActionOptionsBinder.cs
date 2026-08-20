@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 
 namespace DocTranslator.Cli.Options;
 
@@ -14,8 +15,10 @@ public sealed class ActionOptionsCliOverrides
     public string? SourcePath { get; init; }
     public string? IncludeGlob { get; init; }
     public string? GlossaryPath { get; init; }
+    public string? ConfigPath { get; init; }
     public string? OutputPathTemplate { get; init; }
     public string? BaseBranch { get; init; }
+    public bool? PrMode { get; init; }
     public bool? DryRun { get; init; }
     public bool? UseFakeLlm { get; init; }
     public int? MaxParallelRequests { get; init; }
@@ -23,8 +26,8 @@ public sealed class ActionOptionsCliOverrides
 }
 
 /// <summary>
-/// Resolves the final <see cref="ActionOptions"/> by merging (in priority order) CLI flags,
-/// then GitHub Action inputs, then sane defaults.
+/// Resolves the final <see cref="ActionOptions"/> by merging (in priority order) CLI flags, then
+/// GitHub Action inputs, then the optional <c>config-path</c> JSON file, then sane defaults.
 ///
 /// GitHub Actions documents its Docker-action env var convention as "converts input names to
 /// uppercase letters and replaces spaces with `_` characters" - i.e. hyphens in the input name
@@ -38,17 +41,22 @@ public static class ActionOptionsBinder
 {
     public static ActionOptions Bind(ActionOptionsCliOverrides cli)
     {
-        var dryRun = cli.DryRun ?? ParseBool(ReadInput("dry-run")) ?? false;
+        var repositoryPath = Directory.GetCurrentDirectory();
+        var config = LoadConfigFile(cli, repositoryPath);
+
+        // pr-mode is the user-facing on/off switch (default: open a PR); dry-run remains as an
+        // explicit override for anyone who set it directly - if both are given, dry-run wins.
+        var prMode = cli.PrMode ?? ParseBool(ReadInput("pr-mode")) ?? true;
+        var dryRun = cli.DryRun ?? ParseBool(ReadInput("dry-run")) ?? !prMode;
 
         // github-token is only required when we're actually going to push/open a PR - a dry
         // run never touches GitHub credentials, so local smoke testing needs no token at all.
         var githubToken = cli.GitHubToken ?? ReadInput("github-token")
-            ?? (dryRun ? string.Empty : throw new InvalidOperationException("The 'github-token' input (or --github-token) is required."));
+            ?? (dryRun ? string.Empty : throw new InvalidOperationException("The 'github-token' input (or --github-token) is required when pr-mode is enabled."));
 
-        var targetLanguagesRaw = cli.TargetLanguages ?? ReadInput("target-languages")
-            ?? throw new InvalidOperationException("The 'target-languages' input (or --target-languages) is required.");
+        var targetLanguagesRaw = cli.TargetLanguages ?? ReadInput("target-languages") ?? "tr";
 
-        var llmProvider = cli.UseFakeLlm == true ? "fake" : ReadInput("llm-provider") ?? "auto";
+        var llmProvider = cli.UseFakeLlm == true ? "fake" : ReadInput("llm-provider") ?? config?.LlmProvider ?? "auto";
 
         return new ActionOptions
         {
@@ -57,20 +65,20 @@ public static class ActionOptionsBinder
             OpenAiApiKey = ReadInput("openai-api-key"),
             AnthropicApiKey = ReadInput("anthropic-api-key"),
             LlmProvider = llmProvider,
-            GeminiModel = ReadInput("gemini-model"),
-            OpenAiModel = ReadInput("openai-model"),
-            ClaudeModel = ReadInput("claude-model"),
+            GeminiModel = ReadInput("gemini-model") ?? config?.GeminiModel,
+            OpenAiModel = ReadInput("openai-model") ?? config?.OpenAiModel,
+            ClaudeModel = ReadInput("claude-model") ?? config?.ClaudeModel,
             TargetLanguages = targetLanguagesRaw
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-            SourcePath = cli.SourcePath ?? ReadInput("source-path") ?? "docs",
-            IncludeGlob = cli.IncludeGlob ?? ReadInput("include-glob") ?? "**/*.md",
+            SourcePath = cli.SourcePath ?? ReadInput("source-path") ?? config?.SourcePath ?? "docs",
+            IncludeGlob = cli.IncludeGlob ?? ReadInput("include-glob") ?? config?.IncludeGlob ?? "**/*.md",
             GlossaryPath = cli.GlossaryPath ?? ReadInput("glossary-path") ?? ".doc-terms.json",
-            OutputPathTemplate = cli.OutputPathTemplate ?? ReadInput("output-path-template") ?? "docs/{lang}/{relativePath}",
-            BaseBranch = cli.BaseBranch ?? ReadInput("base-branch") ?? Environment.GetEnvironmentVariable("GITHUB_BASE_REF"),
+            OutputPathTemplate = cli.OutputPathTemplate ?? ReadInput("output-path-template") ?? config?.OutputPathTemplate ?? "docs/{lang}/{relativePath}",
+            BaseBranch = cli.BaseBranch ?? ReadInput("base-branch") ?? config?.BaseBranch ?? Environment.GetEnvironmentVariable("GITHUB_BASE_REF"),
             DryRun = dryRun,
-            FailOnStaleTranslations = ParseBool(ReadInput("fail-on-stale-translations")) ?? false,
-            MaxParallelRequests = cli.MaxParallelRequests ?? ParseInt(ReadInput("max-parallel-requests")) ?? 4,
-            RepositoryPath = Directory.GetCurrentDirectory(),
+            FailOnStaleTranslations = ParseBool(ReadInput("fail-on-stale-translations")) ?? config?.FailOnStaleTranslations ?? false,
+            MaxParallelRequests = cli.MaxParallelRequests ?? ParseInt(ReadInput("max-parallel-requests")) ?? config?.MaxParallelRequests ?? 4,
+            RepositoryPath = repositoryPath,
         };
     }
 
@@ -90,6 +98,25 @@ public static class ActionOptionsBinder
         SetIfPresent("INPUT_OPENAI_MODEL", options.OpenAiModel);
         SetIfPresent("INPUT_CLAUDE_MODEL", options.ClaudeModel);
         SetIfPresent("INPUT_MAX_PARALLEL_REQUESTS", options.MaxParallelRequests.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static ConfigFile? LoadConfigFile(ActionOptionsCliOverrides cli, string repositoryPath)
+    {
+        var configPath = cli.ConfigPath ?? ReadInput("config-path");
+        if (string.IsNullOrWhiteSpace(configPath))
+        {
+            return null;
+        }
+
+        var fullPath = Path.IsPathRooted(configPath) ? configPath : Path.Combine(repositoryPath, configPath);
+        if (!File.Exists(fullPath))
+        {
+            throw new InvalidOperationException($"The 'config-path' input points to '{configPath}', which does not exist.");
+        }
+
+        var json = File.ReadAllText(fullPath);
+        return JsonSerializer.Deserialize(json, ConfigFileJsonContext.Default.ConfigFile)
+            ?? throw new InvalidOperationException($"Config file '{configPath}' is empty or invalid.");
     }
 
     private static void SetIfPresent(string envVarName, string? value)

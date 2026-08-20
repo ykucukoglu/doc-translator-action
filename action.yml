@@ -4,7 +4,7 @@ author: 'doc-translator-action'
 
 inputs:
   github-token:
-    description: 'GitHub token used to push the translation branch and open the pull request. Required unless dry-run is true.'
+    description: 'GitHub token used to push the translation branch and open the pull request. Required unless pr-mode (or dry-run) disables PR creation.'
     required: false
   gemini-api-key:
     description: 'Google Gemini API key. Set this, openai-api-key, or anthropic-api-key.'
@@ -32,8 +32,9 @@ inputs:
     required: false
     default: 'claude-sonnet-5'
   target-languages:
-    description: 'Comma-separated target language codes, e.g. de,fr,ja.'
-    required: true
+    description: 'Comma-separated target language codes, e.g. tr,de,fr.'
+    required: false
+    default: 'tr'
   source-path:
     description: 'Root folder to scan for documentation.'
     required: false
@@ -46,6 +47,9 @@ inputs:
     description: 'Path to the .doc-terms.json glossary file.'
     required: false
     default: '.doc-terms.json'
+  config-path:
+    description: 'Path to an optional JSON config file supplying any of source-path, include-glob, output-path-template, base-branch, fail-on-stale-translations, max-parallel-requests, llm-provider, gemini-model, openai-model, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file.'
+    required: false
   output-path-template:
     description: 'Template for translated file output paths. Supports {lang}, {relativePath}, {dir}, {filename}, {ext} - e.g. "{dir}/{filename}.{lang}.{ext}" for MkDocs/Docusaurus-style co-located naming.'
     required: false
@@ -53,10 +57,13 @@ inputs:
   base-branch:
     description: 'Base branch to diff against and to open the pull request into. Defaults to GITHUB_BASE_REF (pull_request events) or the previous commit (push events).'
     required: false
-  dry-run:
-    description: 'When true, writes translated files locally without pushing a branch or opening a pull request. No github-token or LLM key is required to validate configuration.'
+  pr-mode:
+    description: 'When true (default), pushes a branch and opens a pull request with the translated files. When false, behaves like dry-run: writes translated files locally only, no github-token required.'
     required: false
-    default: 'false'
+    default: 'true'
+  dry-run:
+    description: 'Explicit override for pr-mode: when true, writes translated files locally without pushing a branch or opening a pull request, regardless of pr-mode.'
+    required: false
   fail-on-stale-translations:
     description: 'When true, the action exits non-zero if any existing translated file is out of sync with its current source (see the drift-marker feature).'
     required: false

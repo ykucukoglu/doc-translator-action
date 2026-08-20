@@ -1,0 +1,38 @@
+name: Dogfooding
+
+# Uses this repository's own action to translate its own docs/ - the best end-to-end proof that
+# the AST parse -> translate -> self-heal -> reconstruct -> PR pipeline actually works.
+#
+# Requires a GEMINI_API_KEY repository secret. On pull_request, runs in pr-mode: false (writes
+# files locally, no push) so PRs - including ones from forks without secret access - never open a
+# nested PR from within a check. On push to main, runs in full pr-mode: true and opens a real
+# translation PR.
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**']
+  pull_request:
+    branches: [main]
+    paths: ['docs/**']
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # doc-translator-action diffs against the previous commit / base ref
+
+      - name: Translate docs
+        uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          target-languages: tr,de
+          source-path: docs
+          pr-mode: ${{ github.event_name == 'push' && 'true' || 'false' }}

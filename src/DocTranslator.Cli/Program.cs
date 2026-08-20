@@ -24,9 +24,11 @@ var targetLanguagesOption = new Option<string?>("--target-languages", "Comma-sep
 var sourcePathOption = new Option<string?>("--source-path", "Root folder to scan for documentation.");
 var includeGlobOption = new Option<string?>("--include-glob", "Glob (relative to --source-path) selecting which files to translate.");
 var glossaryPathOption = new Option<string?>("--glossary-path", "Path to the .doc-terms.json glossary file.");
+var configPathOption = new Option<string?>("--config-path", "Path to an optional JSON config file supplying advanced settings.");
 var outputPathTemplateOption = new Option<string?>("--output-path-template", "Output path template. Supports {lang}, {relativePath}, {dir}, {filename}, {ext}.");
 var baseBranchOption = new Option<string?>("--base-branch", "Base branch to diff against and to open the pull request into.");
-var dryRunOption = new Option<bool?>("--dry-run", "Skip git push/PR - write translated files locally only.");
+var prModeOption = new Option<bool?>("--pr-mode", "When false, behaves like --dry-run: writes translated files locally without pushing/opening a PR.");
+var dryRunOption = new Option<bool?>("--dry-run", "Skip git push/PR - write translated files locally only. Overrides --pr-mode.");
 var useFakeLlmOption = new Option<bool?>("--use-fake-llm", "Use a trivial marker-wrapping fake translator instead of a real LLM provider.");
 var maxParallelRequestsOption = new Option<int?>("--max-parallel-requests", "Bounds how many LLM batch requests run concurrently per file/language (default 4).");
 var verboseOption = new Option<bool>("--verbose", () => false, "Verbose console output.");
@@ -37,8 +39,10 @@ root.AddOption(targetLanguagesOption);
 root.AddOption(sourcePathOption);
 root.AddOption(includeGlobOption);
 root.AddOption(glossaryPathOption);
+root.AddOption(configPathOption);
 root.AddOption(outputPathTemplateOption);
 root.AddOption(baseBranchOption);
+root.AddOption(prModeOption);
 root.AddOption(dryRunOption);
 root.AddOption(useFakeLlmOption);
 root.AddOption(maxParallelRequestsOption);
@@ -53,8 +57,10 @@ root.SetHandler(async context =>
         SourcePath = context.ParseResult.GetValueForOption(sourcePathOption),
         IncludeGlob = context.ParseResult.GetValueForOption(includeGlobOption),
         GlossaryPath = context.ParseResult.GetValueForOption(glossaryPathOption),
+        ConfigPath = context.ParseResult.GetValueForOption(configPathOption),
         OutputPathTemplate = context.ParseResult.GetValueForOption(outputPathTemplateOption),
         BaseBranch = context.ParseResult.GetValueForOption(baseBranchOption),
+        PrMode = context.ParseResult.GetValueForOption(prModeOption),
         DryRun = context.ParseResult.GetValueForOption(dryRunOption),
         UseFakeLlm = context.ParseResult.GetValueForOption(useFakeLlmOption),
         MaxParallelRequests = context.ParseResult.GetValueForOption(maxParallelRequestsOption),
