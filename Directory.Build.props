@@ -7,4 +7,18 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
+  <!-- Zero-cost technical-debt gate: built-in Roslyn analyzers (SonarLint-equivalent checks -
+       null-deref risk, unused/disposable resources, async pitfalls) surface as build warnings,
+       no external server required. -->
+  <PropertyGroup>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <!-- xUnit's Method_Scenario_ExpectedResult naming convention is intentional and used
+       consistently across every test project; CA1707 (no underscores in identifiers) doesn't apply. -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
 </Project>

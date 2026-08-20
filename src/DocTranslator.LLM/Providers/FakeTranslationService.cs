@@ -11,6 +11,11 @@ public sealed class FakeTranslationService : ILlmTranslationService
 {
     public string ProviderName => "fake";
 
+    public void Dispose()
+    {
+        // No underlying IChatClient/connection to release.
+    }
+
     public Task<IReadOnlyList<TranslatedChunk>> TranslateAsync(
         IReadOnlyList<TranslationChunk> chunks,
         string targetLanguageCode,

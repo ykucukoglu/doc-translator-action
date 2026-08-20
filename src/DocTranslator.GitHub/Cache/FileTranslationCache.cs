@@ -8,7 +8,7 @@ public interface ITranslationCache
     string? TryGet(string sourceFilePath, string targetLanguage, string chunkContentHash);
 
     /// <summary>Records a freshly-translated chunk. Call <see cref="Save"/> to persist.</summary>
-    void Set(string sourceFilePath, string targetLanguage, string chunkContentHash, string translatedText);
+    void SetTranslation(string sourceFilePath, string targetLanguage, string chunkContentHash, string translatedText);
 
     /// <summary>Flushes every manifest touched since the cache was constructed (or last saved) to disk.</summary>
     void Save();
@@ -28,7 +28,7 @@ public sealed class FileTranslationCache(string cacheRootDirectory) : ITranslati
     public string? TryGet(string sourceFilePath, string targetLanguage, string chunkContentHash) =>
         LoadManifest(sourceFilePath, targetLanguage).GetValueOrDefault(chunkContentHash);
 
-    public void Set(string sourceFilePath, string targetLanguage, string chunkContentHash, string translatedText)
+    public void SetTranslation(string sourceFilePath, string targetLanguage, string chunkContentHash, string translatedText)
     {
         var manifestPath = GetManifestPath(sourceFilePath, targetLanguage);
         LoadManifest(sourceFilePath, targetLanguage)[chunkContentHash] = translatedText;

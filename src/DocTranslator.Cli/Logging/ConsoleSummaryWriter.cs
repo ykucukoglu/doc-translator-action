@@ -31,6 +31,11 @@ public sealed class ConsoleSummaryWriter : IConsoleSummaryWriter
             Console.WriteLine($"  drift warning: {warning}");
         }
 
+        foreach (var error in summary.Errors)
+        {
+            Console.WriteLine($"  skipped (malformed translation response): {error}");
+        }
+
         if (dryRun)
         {
             Console.WriteLine("Dry run - no branch was pushed and no pull request was opened.");

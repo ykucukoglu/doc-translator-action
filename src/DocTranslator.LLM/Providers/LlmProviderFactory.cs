@@ -77,7 +77,7 @@ public sealed class LlmProviderFactory(
         };
     }
 
-    private static string ResolveProvider(string? explicitProvider, IReadOnlyList<string> configuredProviders)
+    private static string ResolveProvider(string? explicitProvider, List<string> configuredProviders)
     {
         if (!string.IsNullOrEmpty(explicitProvider) && explicitProvider != "auto")
         {

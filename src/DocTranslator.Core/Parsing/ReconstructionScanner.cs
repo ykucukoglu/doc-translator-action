@@ -17,6 +17,10 @@ public sealed class ReconstructionScanner
 
     private static readonly string[] KnownTagNames = ["em", "strong", "link"];
 
+    // Kept as an instance method (not static) for consistency with every other service in this
+    // codebase, all of which are instantiated and could be DI-registered/mocked the same way,
+    // even though this particular one happens not to hold instance state today.
+#pragma warning disable CA1822
     public IReadOnlyList<EncodedNode> Parse(string text)
     {
         var position = 0;
@@ -30,6 +34,7 @@ public sealed class ReconstructionScanner
 
         return nodes;
     }
+#pragma warning restore CA1822
 
     private static List<EncodedNode> ParseNodes(string text, ref int position, string? closingTag)
     {
@@ -96,7 +101,7 @@ public sealed class ReconstructionScanner
         return nodes;
     }
 
-    private static EncodedNode ParsePlaceholder(string text, ref int position)
+    private static PlaceholderRefNode ParsePlaceholder(string text, ref int position)
     {
         var start = position;
         position++; // consume PlaceholderOpen

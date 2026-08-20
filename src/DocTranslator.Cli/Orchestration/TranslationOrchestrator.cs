@@ -68,7 +68,7 @@ public sealed class TranslationOrchestrator(
         Dictionary<string, string> filesToCommit,
         CancellationToken cancellationToken)
     {
-        var llmService = llmProviderFactory.Create();
+        using var llmService = llmProviderFactory.Create();
         var languageStats = options.TargetLanguages.ToDictionary(lang => lang, _ => (Translated: 0, Cached: 0));
 
         foreach (var changedFile in changedFiles)
@@ -93,7 +93,20 @@ public sealed class TranslationOrchestrator(
                     }
                 }
 
-                var outputMarkdown = astReconstructor.Reconstruct(context, translatedChunks, provenance with { TargetLanguage = targetLanguage });
+                // Defensive: a single malformed placeholder/tag marker in an otherwise-valid LLM
+                // response must not abort the whole run. Skip just this file/language pair and
+                // keep going - every other file and language still gets translated and committed.
+                string outputMarkdown;
+                try
+                {
+                    outputMarkdown = astReconstructor.Reconstruct(context, translatedChunks, provenance with { TargetLanguage = targetLanguage });
+                }
+                catch (ReconstructionParseException ex)
+                {
+                    summary.Errors.Add($"{changedFile.Path} [{targetLanguage}]: {ex.Message}");
+                    continue;
+                }
+
                 var outputRelativePath = outputPathResolver.Resolve(options.OutputPathTemplate, targetLanguage, changedFile.Path);
                 filesToCommit[outputRelativePath] = outputMarkdown;
 
@@ -144,7 +157,7 @@ public sealed class TranslationOrchestrator(
             foreach (var t in translated)
             {
                 result.Add(t);
-                translationCache.Set(sourceRelativePath, targetLanguage, missesById[t.ChunkId].ContentHash, t.TranslatedText);
+                translationCache.SetTranslation(sourceRelativePath, targetLanguage, missesById[t.ChunkId].ContentHash, t.TranslatedText);
             }
         }
 

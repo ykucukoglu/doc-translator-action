@@ -17,7 +17,7 @@ public class AstReconstructorRoundTripTests
     private readonly MarkdigParserService _parser = new();
     private readonly AstReconstructor _reconstructor = new();
 
-    private static IReadOnlyList<TranslatedChunk> FakeTranslate(IReadOnlyList<TranslationChunk> chunks) =>
+    private static List<TranslatedChunk> FakeTranslate(IReadOnlyList<TranslationChunk> chunks) =>
         chunks.Select(c => new TranslatedChunk(c.ChunkId, $"⟪{c.SourceText}⟫")).ToList();
 
     [Theory]

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using DocTranslator.Core.Models;
 
@@ -25,7 +26,7 @@ public sealed class PrSummaryBuilder : IPrSummaryBuilder
             sb.AppendLine("| --- | --- | --- |");
             foreach (var language in summary.Languages)
             {
-                sb.AppendLine($"| {language.TargetLanguage} | {language.ChunksTranslated} | {language.ChunksFromCache} |");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"| {language.TargetLanguage} | {language.ChunksTranslated} | {language.ChunksFromCache} |");
             }
 
             sb.AppendLine();
@@ -48,6 +49,17 @@ public sealed class PrSummaryBuilder : IPrSummaryBuilder
             foreach (var warning in summary.GlossaryWarnings)
             {
                 sb.Append("- ").AppendLine(warning);
+            }
+
+            sb.AppendLine();
+        }
+
+        if (summary.Errors.Count > 0)
+        {
+            sb.AppendLine("### Skipped (malformed translation response)").AppendLine();
+            foreach (var error in summary.Errors)
+            {
+                sb.Append("- ").AppendLine(error);
             }
         }
 

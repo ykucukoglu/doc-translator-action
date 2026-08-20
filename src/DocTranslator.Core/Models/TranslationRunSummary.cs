@@ -13,6 +13,13 @@ public sealed class TranslationRunSummary
     public List<string> GlossaryWarnings { get; } = [];
 
     public List<string> DriftWarnings { get; } = [];
+
+    /// <summary>
+    /// File/language pairs skipped because the LLM's response couldn't be reconstructed back into
+    /// the AST (malformed/partially-translated placeholder or tag markers). One bad response never
+    /// aborts the whole run - the offending pair is skipped and reported here instead.
+    /// </summary>
+    public List<string> Errors { get; } = [];
 }
 
 public sealed record LanguageSummary(string TargetLanguage, int ChunksTranslated, int ChunksFromCache);

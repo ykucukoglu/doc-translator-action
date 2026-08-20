@@ -8,7 +8,7 @@ namespace DocTranslator.LLM;
 /// The app-facing contract is provider-agnostic - see <see cref="Services.ChatClientLlmTranslationService"/>
 /// for the single implementation shared by all three providers.
 /// </summary>
-public interface ILlmTranslationService
+public interface ILlmTranslationService : IDisposable
 {
     string ProviderName { get; }
 

@@ -32,6 +32,13 @@ public sealed class OctokitGitHubService(IGitWriter gitWriter) : IGitHubService
 {
     public async Task<PullRequestOutcome> CommitAndOpenPullRequestAsync(GitHubPushRequest request, CancellationToken cancellationToken)
     {
+        // Octokit 14.x's PullRequest/Issue.Comment client methods used below don't expose
+        // CancellationToken overloads at all (confirmed against the installed package - it's a
+        // SDK limitation, not an oversight here), so this is the best cooperative-cancellation
+        // point available: bail out before starting the irreversible git push/PR sequence, and
+        // between each REST call, rather than mid-request.
+        cancellationToken.ThrowIfCancellationRequested();
+
         gitWriter.CommitAndPush(
             request.RepositoryPath,
             request.BranchName,
@@ -40,6 +47,8 @@ public sealed class OctokitGitHubService(IGitWriter gitWriter) : IGitHubService
             authorName: "doc-translator-action",
             authorEmail: "doc-translator-action@users.noreply.github.com",
             remoteToken: request.Token);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var client = new GitHubClient(new ProductHeaderValue("doc-translator-action"))
         {
@@ -51,12 +60,15 @@ public sealed class OctokitGitHubService(IGitWriter gitWriter) : IGitHubService
             request.RepositoryName,
             new PullRequestRequest { State = ItemStateFilter.Open, Head = $"{request.Owner}:{request.BranchName}" });
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         var outcome = existing.Count > 0
             ? new PullRequestOutcome(existing[0].HtmlUrl, existing[0].Number, WasCreated: false)
             : await CreatePullRequestAsync(client, request);
 
         if (!string.IsNullOrWhiteSpace(request.SummaryComment))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             await client.Issue.Comment.Create(request.Owner, request.RepositoryName, outcome.Number, request.SummaryComment);
         }
 

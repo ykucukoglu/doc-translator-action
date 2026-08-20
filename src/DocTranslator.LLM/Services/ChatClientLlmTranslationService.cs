@@ -26,6 +26,13 @@ public sealed class ChatClientLlmTranslationService(
 {
     public string ProviderName { get; } = providerName;
 
+    /// <summary>
+    /// Owns and disposes the <see cref="IChatClient"/> handed in by
+    /// <see cref="DocTranslator.LLM.Providers.LlmProviderFactory"/> - each vendor's SDK client
+    /// wraps an <c>HttpClient</c>-backed connection that should be released once the run is done.
+    /// </summary>
+    public void Dispose() => chatClient.Dispose();
+
     public async Task<IReadOnlyList<TranslatedChunk>> TranslateAsync(
         IReadOnlyList<TranslationChunk> chunks,
         string targetLanguageCode,

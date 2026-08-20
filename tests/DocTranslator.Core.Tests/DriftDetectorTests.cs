@@ -15,6 +15,8 @@ public class DriftDetectorTests : IDisposable
         {
             File.Delete(_tempFile);
         }
+
+        GC.SuppressFinalize(this);
     }
 
     [Fact]
