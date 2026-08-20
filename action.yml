@@ -84,3 +84,7 @@ outputs:
 runs:
   using: 'docker'
   image: 'Dockerfile'
+
+branding:
+  icon: 'globe'
+  color: 'blue'
