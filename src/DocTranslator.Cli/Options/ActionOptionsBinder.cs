@@ -76,7 +76,7 @@ public static class ActionOptionsBinder
             IncludeGlob = cli.IncludeGlob ?? ReadInput("include-glob") ?? config?.IncludeGlob ?? "**/*.md",
             GlossaryPath = cli.GlossaryPath ?? ReadInput("glossary-path") ?? ".doc-terms.json",
             OutputPathTemplate = cli.OutputPathTemplate ?? ReadInput("output-path-template") ?? config?.OutputPathTemplate ?? "docs/{lang}/{relativePath}",
-            BaseBranch = cli.BaseBranch ?? ReadInput("base-branch") ?? config?.BaseBranch ?? Environment.GetEnvironmentVariable("GITHUB_BASE_REF"),
+            BaseBranch = cli.BaseBranch ?? ReadInput("base-branch") ?? config?.BaseBranch ?? NullIfEmpty(Environment.GetEnvironmentVariable("GITHUB_BASE_REF")),
             DryRun = dryRun,
             FailOnStaleTranslations = ParseBool(ReadInput("fail-on-stale-translations")) ?? config?.FailOnStaleTranslations ?? false,
             MaxParallelRequests = cli.MaxParallelRequests ?? ParseInt(ReadInput("max-parallel-requests")) ?? config?.MaxParallelRequests ?? 4,
@@ -148,4 +148,9 @@ public static class ActionOptionsBinder
         !string.IsNullOrWhiteSpace(value) && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed > 0
             ? parsed
             : null;
+
+    // GITHUB_BASE_REF is set by GitHub Actions to an empty string (not unset) on push events - it's
+    // only populated for pull_request events. A plain `??` chain treats "" as a present value, so
+    // this normalizes it to null before it reaches any downstream `?? "main"`-style default.
+    private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }

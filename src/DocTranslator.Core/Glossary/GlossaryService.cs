@@ -96,7 +96,7 @@ public sealed class GlossaryService : IGlossaryService
                 continue;
             }
 
-            if (!ContainsWholeWord(translatedText, requiredTarget, comparison))
+            if (!ContainsWordStart(translatedText, requiredTarget, comparison))
             {
                 warnings.Add($"Glossary mapping '{sourceTerm}' -> '{requiredTarget}' ({targetLanguage}) was not found in the translation.");
             }
@@ -108,6 +108,22 @@ public sealed class GlossaryService : IGlossaryService
     private static bool ContainsWholeWord(string text, string term, RegexOptions comparisonOptions)
     {
         var pattern = $@"\b{Regex.Escape(term)}\b";
+        return Regex.IsMatch(text, pattern, comparisonOptions | RegexOptions.CultureInvariant);
+    }
+
+    /// <summary>
+    /// Like <see cref="ContainsWholeWord"/> but only requires a word boundary before the term, not
+    /// after it. Agglutinative target languages (Turkish, Finnish, Hungarian...) glue case suffixes
+    /// directly onto native words with no separator - e.g. "depo" (repository) commonly appears as
+    /// "depoya"/"deposunu"/"depodan" in real translations - so a trailing \b produces false-positive
+    /// warnings for otherwise-correct output. Only used for custom_mappings' required target term;
+    /// dont_translate stays whole-word since those terms (GitHub, API, SDK...) are meant to survive
+    /// verbatim, and Turkish orthography attaches an apostrophe before suffixes on such loanwords/
+    /// abbreviations anyway (e.g. "API'ye"), which a trailing \b already handles correctly.
+    /// </summary>
+    private static bool ContainsWordStart(string text, string term, RegexOptions comparisonOptions)
+    {
+        var pattern = $@"\b{Regex.Escape(term)}";
         return Regex.IsMatch(text, pattern, comparisonOptions | RegexOptions.CultureInvariant);
     }
 }

@@ -99,6 +99,23 @@ public class GlossaryServiceTests
     }
 
     [Fact]
+    public void Validate_CustomMappingTargetAppearsWithAgglutinatedSuffix_NoWarning()
+    {
+        // Turkish glues case suffixes directly onto native words with no separator - "depo" survives
+        // in real translations as "depoya"/"deposunu"/etc. A trailing word-boundary requirement would
+        // false-positive on every one of these even though the translation correctly used the term.
+        var mappings = new Dictionary<string, IReadOnlyDictionary<string, string>>
+        {
+            ["tr"] = new Dictionary<string, string> { ["repository"] = "depo" },
+        };
+        var glossary = new GlossaryContext(new HashSet<string>(), mappings, CaseSensitive: false);
+
+        var warnings = _sut.Validate("Clone the repository first.", "Önce depoyu klonlayın.", glossary, "tr");
+
+        warnings.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Validate_TermNotPresentInSourceChunk_IsSkipped()
     {
         var glossary = new GlossaryContext(new HashSet<string> { "API" }, new Dictionary<string, IReadOnlyDictionary<string, string>>(), CaseSensitive: false);
