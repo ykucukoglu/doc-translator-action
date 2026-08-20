@@ -32,4 +32,7 @@ FROM mcr.microsoft.com/dotnet/runtime:9.0 AS runtime
 WORKDIR /app
 COPY --from=build /app ./
 
-ENTRYPOINT ["dotnet", "DocTranslator.Cli.dll"]
+# Absolute path, not "DocTranslator.Cli.dll" relative to WORKDIR: GitHub Actions runs Docker
+# actions with the working directory overridden to the checked-out repo (GITHUB_WORKSPACE), so a
+# relative entrypoint path would fail to locate the DLL at runtime.
+ENTRYPOINT ["dotnet", "/app/DocTranslator.Cli.dll"]
