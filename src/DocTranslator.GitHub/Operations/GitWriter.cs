@@ -63,8 +63,13 @@ public sealed class GitWriter : IGitWriter
             },
         };
 
-        // Push the branch ref directly - avoids requiring upstream tracking to already be
-        // configured, which a freshly-created local branch never has.
-        repo.Network.Push(remote, $"refs/heads/{branchName}:refs/heads/{branchName}", pushOptions);
+        // Force-push (the leading '+'): branchName is deterministically derived from the
+        // triggering commit SHA (doc-translator/{shortSha}) and this action is the only writer of
+        // that ref, by design, for idempotent re-runs. Without the '+', a re-run of the same
+        // workflow run - e.g. after fixing an unrelated failure like a missing PR permission -
+        // starts from a fresh checkout with no knowledge of the branch a previous attempt already
+        // pushed, so a plain push is rejected as non-fast-forward even though regenerating that
+        // exact branch's content is exactly what a re-run is supposed to do.
+        repo.Network.Push(remote, $"+refs/heads/{branchName}:refs/heads/{branchName}", pushOptions);
     }
 }
