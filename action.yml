@@ -1,0 +1,75 @@
+name: 'Doc Translator'
+description: 'AST-aware Markdown translation via Markdig + LLM (Gemini, OpenAI, or Claude), opens a pull request with the results.'
+author: 'doc-translator-action'
+
+inputs:
+  github-token:
+    description: 'GitHub token used to push the translation branch and open the pull request. Required unless dry-run is true.'
+    required: false
+  gemini-api-key:
+    description: 'Google Gemini API key. Set this, openai-api-key, or anthropic-api-key.'
+    required: false
+  openai-api-key:
+    description: 'OpenAI API key. Set this, gemini-api-key, or anthropic-api-key.'
+    required: false
+  anthropic-api-key:
+    description: 'Anthropic (Claude) API key. Set this, gemini-api-key, or openai-api-key.'
+    required: false
+  llm-provider:
+    description: "Which LLM provider to use: auto, gemini, openai, claude, or fake. 'auto' requires exactly one of the *-api-key inputs to be set; if more than one is set, llm-provider must be set explicitly."
+    required: false
+    default: 'auto'
+  gemini-model:
+    description: 'Gemini model id.'
+    required: false
+    default: 'gemini-2.5-flash'
+  openai-model:
+    description: 'OpenAI model id.'
+    required: false
+    default: 'gpt-5-mini'
+  claude-model:
+    description: 'Claude model id.'
+    required: false
+    default: 'claude-sonnet-5'
+  target-languages:
+    description: 'Comma-separated target language codes, e.g. de,fr,ja.'
+    required: true
+  source-path:
+    description: 'Root folder to scan for documentation.'
+    required: false
+    default: 'docs'
+  include-glob:
+    description: 'Glob (relative to source-path) selecting which files to translate.'
+    required: false
+    default: '**/*.md'
+  glossary-path:
+    description: 'Path to the .doc-terms.json glossary file.'
+    required: false
+    default: '.doc-terms.json'
+  output-path-template:
+    description: 'Template for translated file output paths. {lang} and {relativePath} are substituted.'
+    required: false
+    default: 'docs/{lang}/{relativePath}'
+  base-branch:
+    description: 'Base branch to diff against and to open the pull request into. Defaults to GITHUB_BASE_REF (pull_request events) or the previous commit (push events).'
+    required: false
+  dry-run:
+    description: 'When true, writes translated files locally without pushing a branch or opening a pull request. No github-token or LLM key is required to validate configuration.'
+    required: false
+    default: 'false'
+  fail-on-stale-translations:
+    description: 'When true, the action exits non-zero if any existing translated file is out of sync with its current source (see the drift-marker feature).'
+    required: false
+    default: 'false'
+
+outputs:
+  pr-url:
+    description: 'URL of the opened (or reused) pull request. Empty on a dry run or when nothing was translated.'
+  translated-files-count:
+    description: 'Number of translated files written in this run.'
+  stale-translations-count:
+    description: 'Number of existing translated files found to be out of sync with their source.'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
