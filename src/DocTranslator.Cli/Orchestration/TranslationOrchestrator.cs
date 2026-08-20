@@ -136,7 +136,8 @@ public sealed class TranslationOrchestrator(
                     log.LogWarning(message, changedFile.Path);
                 }
 
-                var outputRelativePath = outputPathResolver.Resolve(options.OutputPathTemplate, targetLanguage, changedFile.Path);
+                var outputRelativePath = outputPathResolver.Resolve(
+                    options.OutputPathTemplate, targetLanguage, ToSourceRelativePath(changedFile.Path, options.SourcePath));
                 filesToCommit[outputRelativePath] = outcome.Markdown;
 
                 var (translatedSoFar, cachedSoFar) = languageStats[targetLanguage];
@@ -221,7 +222,8 @@ public sealed class TranslationOrchestrator(
 
             foreach (var targetLanguage in options.TargetLanguages)
             {
-                var outputRelativePath = outputPathResolver.Resolve(options.OutputPathTemplate, targetLanguage, relativeSourcePath);
+                var outputRelativePath = outputPathResolver.Resolve(
+                    options.OutputPathTemplate, targetLanguage, ToSourceRelativePath(relativeSourcePath, options.SourcePath));
                 var absoluteOutputPath = Path.Combine(options.RepositoryPath, outputRelativePath);
 
                 if (!File.Exists(absoluteOutputPath))
@@ -238,6 +240,32 @@ public sealed class TranslationOrchestrator(
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// IOutputPathResolver's {relativePath} placeholder is documented as relative to source-path
+    /// (e.g. "getting-started.md"), but every caller here only has a repo-root-relative path
+    /// (e.g. "docs/getting-started.md" - git diff output and Matcher.GetResultsInFullPath both
+    /// naturally produce repo-relative paths, not source-path-relative ones). Passing that
+    /// straight through duplicated source-path into the resolved output, e.g.
+    /// "docs/{lang}/{relativePath}" resolving to "docs/tr/docs/getting-started.md" instead of
+    /// "docs/tr/getting-started.md". Strips the source-path prefix so callers satisfy the
+    /// resolver's actual contract.
+    /// </summary>
+    private static string ToSourceRelativePath(string repoRelativePath, string sourcePath)
+    {
+        var normalizedRepoPath = repoRelativePath.Replace('\\', '/').TrimStart('/');
+        var normalizedSourcePath = sourcePath.Replace('\\', '/').Trim('/');
+
+        if (normalizedSourcePath.Length == 0 || normalizedSourcePath == ".")
+        {
+            return normalizedRepoPath;
+        }
+
+        var prefix = normalizedSourcePath + "/";
+        return normalizedRepoPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? normalizedRepoPath[prefix.Length..]
+            : normalizedRepoPath;
     }
 
     private async Task<string?> PublishAsync(
