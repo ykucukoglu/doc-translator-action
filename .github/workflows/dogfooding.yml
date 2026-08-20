@@ -34,6 +34,20 @@ jobs:
         with:
           fetch-depth: 2 # doc-translator-action diffs against the previous commit / base ref
 
+      # Computed in shell, not a GitHub Actions `A && B || C` expression: that pattern is a known
+      # trap when B can itself be a falsy value (like this false/false case) - it falls through to
+      # C exactly like JavaScript's `&&`/`||` ternary emulation does, so it's unreliable here.
+      - name: Determine pr-mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "pr_mode=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.pr_mode }}" = "true" ]; then
+            echo "pr_mode=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pr_mode=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Translate docs
         uses: ./
         with:
@@ -41,4 +55,4 @@ jobs:
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
           target-languages: tr,de
           source-path: docs
-          pr-mode: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.pr_mode)) && 'true' || 'false' }}
+          pr-mode: ${{ steps.mode.outputs.pr_mode }}

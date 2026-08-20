@@ -52,7 +52,9 @@ public static class ActionOptionsBinder
         // github-token is only required when we're actually going to push/open a PR - a dry
         // run never touches GitHub credentials, so local smoke testing needs no token at all.
         var githubToken = cli.GitHubToken ?? ReadInput("github-token")
-            ?? (dryRun ? string.Empty : throw new InvalidOperationException("The 'github-token' input (or --github-token) is required when pr-mode is enabled."));
+            ?? (dryRun ? string.Empty : throw new InvalidOperationException(
+                "The 'github-token' input (or --github-token) is required when pr-mode is enabled. "
+                + $"(resolved: pr-mode='{ReadInput("pr-mode") ?? "<unset>"}', dry-run='{ReadInput("dry-run") ?? "<unset>"}')"));
 
         var targetLanguagesRaw = cli.TargetLanguages ?? ReadInput("target-languages") ?? "tr";
 
