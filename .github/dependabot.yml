@@ -10,6 +10,14 @@ updates:
       microsoft-extensions:
         patterns:
           - "Microsoft.Extensions.*"
+    ignore:
+      # Pinned to 7.x deliberately: FluentAssertions 8+ requires a commercial license, and this
+      # project is meant to build with nothing but free/open packages.
+      - dependency-name: "FluentAssertions"
+        update-types: ["version-update:semver-major"]
+      # Pinned to this exact beta build deliberately (API churns across betas) - any bump here,
+      # including a minor/patch one, needs a deliberate migration pass, not an automated PR.
+      - dependency-name: "System.CommandLine"
 
   - package-ecosystem: "github-actions"
     directory: "/"
