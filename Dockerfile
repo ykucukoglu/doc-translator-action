@@ -32,7 +32,10 @@ FROM mcr.microsoft.com/dotnet/runtime:9.0 AS runtime
 WORKDIR /app
 COPY --from=build /app ./
 
-# Absolute path, not "DocTranslator.Cli.dll" relative to WORKDIR: GitHub Actions runs Docker
-# actions with the working directory overridden to the checked-out repo (GITHUB_WORKSPACE), so a
-# relative entrypoint path would fail to locate the DLL at runtime.
-ENTRYPOINT ["dotnet", "/app/DocTranslator.Cli.dll"]
+# See docker-entrypoint.sh: GitHub Actions checks out the repo as the runner's own user but runs
+# Docker actions as root, which trips libgit2's "dubious ownership" safety check (the same
+# CVE-2022-24765 fix git itself has) unless the workspace is explicitly marked safe first.
+COPY docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
