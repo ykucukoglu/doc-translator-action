@@ -201,6 +201,23 @@ public sealed class AstReconstructor : IAstReconstructor
                 $"No reconstruction context found for chunk '{translated.ChunkId}' in '{context.SourceFilePath}'.");
         }
 
+        // Atomic placeholder objects (code spans, autolinks, raw HTML, line breaks) are reused by
+        // reference, not rebuilt - but their *original* parent might be a nested container (e.g.
+        // a CodeInline whose parent is a LinkInline, for `` [`code`](url) ``), not the target
+        // block's top-level Inline container. Below, targetInline.Clear() only detaches its own
+        // *direct* children, so a placeholder nested two levels deep would still think it's
+        // parented to the (now-orphaned) intermediate container, and AppendChild would throw
+        // "Inline has already a parent". Detach every stored placeholder directly, regardless of
+        // its current nesting depth, so it's always safe to re-append - this also makes splicing
+        // safe to repeat across multiple target languages against the same live document.
+        foreach (var placeholder in reconstructionContext.AtomicPlaceholders.Values)
+        {
+            if (placeholder.Parent is not null)
+            {
+                placeholder.Remove();
+            }
+        }
+
         var nodes = _scanner.Parse(translated.TranslatedText);
         var builtInlines = BuildInlines(nodes, reconstructionContext, translated.ChunkId);
 

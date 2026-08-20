@@ -75,6 +75,53 @@ public class AstReconstructorRoundTripTests
     }
 
     [Fact]
+    public async Task Reconstruct_InlineCodeNestedInsideLink_DoesNotThrow()
+    {
+        // Regression test: a CodeInline's original parent (from Markdig's own parse) is the
+        // LinkInline wrapping it, not the paragraph's top-level Inline container - reconstruction
+        // must detach the placeholder from that nested parent, not just the block's direct
+        // children, or AppendChild throws "Inline has already a parent".
+        var markdown = Fixtures.Load("links-and-urls.md");
+        var context = _parser.ParseAndExtractChunks("links-and-urls.md", markdown);
+        var translated = FakeTranslate(context.Chunks);
+
+        var act = async () => await ReconstructAsync(context, translated);
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task Reconstruct_InlineCodeNestedInsideLink_PreservesCodeAndUrl()
+    {
+        var markdown = Fixtures.Load("links-and-urls.md");
+        var context = _parser.ParseAndExtractChunks("links-and-urls.md", markdown);
+        var translated = FakeTranslate(context.Chunks);
+
+        var outcome = await ReconstructAsync(context, translated);
+
+        outcome.Markdown.Should().Contain("`.doc-terms.json`");
+        outcome.Markdown.Should().Contain("../.doc-terms.json");
+        outcome.Markdown.Should().Contain("`AstReconstructor`");
+    }
+
+    [Fact]
+    public async Task Reconstruct_SameContextTwiceForDifferentLanguages_NeitherPassThrows()
+    {
+        // Mirrors how TranslationOrchestrator actually uses this: the same DocumentTranslationContext
+        // (and its live Markdig AST) is reconstructed once per target language, reusing the same
+        // stashed placeholder objects each time.
+        var markdown = Fixtures.Load("links-and-urls.md");
+        var context = _parser.ParseAndExtractChunks("links-and-urls.md", markdown);
+        var translated = FakeTranslate(context.Chunks);
+
+        var firstPass = await ReconstructAsync(context, translated);
+        var secondPass = await ReconstructAsync(context, translated);
+
+        firstPass.Markdown.Should().Contain("`.doc-terms.json`");
+        secondPass.Markdown.Should().Contain("`.doc-terms.json`");
+    }
+
+    [Fact]
     public async Task Reconstruct_MixedInlineFormatting_InlineCodeIsByteIdentical()
     {
         var markdown = Fixtures.Load("mixed-inline-formatting.md");
