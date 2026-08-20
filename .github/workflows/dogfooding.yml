@@ -56,3 +56,8 @@ jobs:
           target-languages: tr,de
           source-path: docs
           pr-mode: ${{ steps.mode.outputs.pr_mode }}
+          # GEMINI_API_KEY here is a free-tier key with a low per-minute request limit. The
+          # default concurrency (4) fires enough parallel batch requests across 2 target languages
+          # to blow through that limit in one burst - keep this at 1 so dogfooding runs stay within
+          # a real free-tier quota instead of relying on retry/backoff to absorb 429s.
+          max-parallel-requests: 1

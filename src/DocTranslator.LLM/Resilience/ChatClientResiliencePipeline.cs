@@ -15,7 +15,7 @@ namespace DocTranslator.LLM.Resilience;
 /// </summary>
 public static class ChatClientResiliencePipeline
 {
-    public static ResiliencePipeline Create(int maxRetryAttempts = 3) =>
+    public static ResiliencePipeline Create(int maxRetryAttempts = 5) =>
         new ResiliencePipelineBuilder()
             .AddRetry(new RetryStrategyOptions
             {
@@ -29,7 +29,14 @@ public static class ChatClientResiliencePipeline
                     .Handle<HttpRequestException>(ex => ex.StatusCode is null || IsTransientStatus((int)ex.StatusCode.Value)),
                 MaxRetryAttempts = maxRetryAttempts,
                 BackoffType = DelayBackoffType.Exponential,
-                Delay = TimeSpan.FromSeconds(1),
+                // A 1s base (the original value) tops out around 7s of total backoff across 3
+                // attempts - nowhere near enough to survive a free-tier per-minute rate limit
+                // window, which is exactly what a real dogfooding run against Gemini's free tier
+                // hit: a burst of concurrent requests drew several 429s in a row, and by the time
+                // the (short) backoff elapsed the same 60s window was still active. A 3s base over
+                // 5 attempts spans roughly a minute (3+6+12+24+48s before jitter), which actually
+                // has a chance of crossing into the next quota window.
+                Delay = TimeSpan.FromSeconds(3),
                 UseJitter = true,
             })
             .Build();
