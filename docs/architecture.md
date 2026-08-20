@@ -27,6 +27,10 @@ Markdown translation tools that operate on raw text or regular expressions event
 - **Resilience** - transient HTTP failures (429/5xx) are retried with Polly v8 exponential backoff, independent of the semantic retry that repairs malformed JSON or missing markers.
 - **Drift detection** - every translated file carries an HTML-comment provenance header (source content hash + timestamp). A later run flags any translation whose source has since changed without a corresponding re-translation.
 
+## Configuration precedence
+
+Every setting resolves in the same order regardless of source: an explicit CLI flag wins, then the matching `INPUT_*` Action input, then the optional `config-path` JSON file, then a built-in default. This lets a single `config-path` file hold repo-wide defaults while any individual workflow run still overrides one value without editing it.
+
 ## Observability
 
 Every run produces: a GitHub Actions Job Summary (`GITHUB_STEP_SUMMARY`) with per-language chunk/cache counts and token usage, `::group::`/`::warning::`/`::error::` workflow-command annotations for per-file processing and glossary/reconstruction issues, and a PR comment summarizing the same.
