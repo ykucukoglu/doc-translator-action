@@ -69,6 +69,6 @@ For settings you don't want to repeat across every workflow run, point `config-p
 ## Next steps
 
 - Read [architecture.md](architecture.md) for how the AST parse/translate/reconstruct pipeline actually works.
-- Add a [`.doc-terms.json`](../.doc-terms.json) glossary to keep product names and technical terms untranslated.
+- Add a [`.doc-terms.json`](../.doc-terms.json) glossary to keep product names and technical terms untranslated. `custom_mappings`' QA check only requires the required rendering to *start* a word in the translation, not stand entirely alone - agglutinative languages like Turkish attach case suffixes directly to a word (e.g. "depo" legitimately appears as "depoya"/"deposunu"), so this avoids flagging a correct translation as a glossary miss.
 - Add a [`.doc-ignore`](../.doc-ignore) file to exclude files like `CHANGELOG.md` from translation.
 - See the [README](../README.md) for the full input/output reference and Docusaurus/MkDocs quick-start snippets.
