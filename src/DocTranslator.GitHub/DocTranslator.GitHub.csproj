@@ -4,4 +4,10 @@
     <ProjectReference Include="..\DocTranslator.Core\DocTranslator.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="LibGit2Sharp" Version="0.32.0" />
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.11" />
+    <PackageReference Include="Octokit" Version="14.0.0" />
+  </ItemGroup>
+
 </Project>
