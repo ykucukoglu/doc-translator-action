@@ -28,7 +28,7 @@ RUN dotnet publish src/DocTranslator.Cli/DocTranslator.Cli.csproj \
     -o /app \
     /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/runtime:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app ./
 
