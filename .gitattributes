@@ -1,0 +1,6 @@
+# Shell scripts run inside Linux containers - a CRLF shebang line breaks them outright.
+# Force LF regardless of the checkout platform's core.autocrlf setting.
+*.sh text eol=lf
+
+# C# source stays platform-normalized (CRLF on Windows checkouts is fine, .NET tooling doesn't care).
+*.cs text=auto
