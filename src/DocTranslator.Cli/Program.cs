@@ -4,6 +4,7 @@ using DocTranslator.Cli.Options;
 using DocTranslator.Cli.Orchestration;
 using DocTranslator.Core.Extensions;
 using DocTranslator.Core.Glossary;
+using DocTranslator.Core.Ignore;
 using DocTranslator.Core.Parsing;
 using DocTranslator.Core.Provenance;
 using DocTranslator.Core.Reconstruction;
@@ -23,6 +24,7 @@ var targetLanguagesOption = new Option<string?>("--target-languages", "Comma-sep
 var sourcePathOption = new Option<string?>("--source-path", "Root folder to scan for documentation.");
 var includeGlobOption = new Option<string?>("--include-glob", "Glob (relative to --source-path) selecting which files to translate.");
 var glossaryPathOption = new Option<string?>("--glossary-path", "Path to the .doc-terms.json glossary file.");
+var outputPathTemplateOption = new Option<string?>("--output-path-template", "Output path template. Supports {lang}, {relativePath}, {dir}, {filename}, {ext}.");
 var baseBranchOption = new Option<string?>("--base-branch", "Base branch to diff against and to open the pull request into.");
 var dryRunOption = new Option<bool?>("--dry-run", "Skip git push/PR - write translated files locally only.");
 var useFakeLlmOption = new Option<bool?>("--use-fake-llm", "Use a trivial marker-wrapping fake translator instead of a real LLM provider.");
@@ -35,6 +37,7 @@ root.AddOption(targetLanguagesOption);
 root.AddOption(sourcePathOption);
 root.AddOption(includeGlobOption);
 root.AddOption(glossaryPathOption);
+root.AddOption(outputPathTemplateOption);
 root.AddOption(baseBranchOption);
 root.AddOption(dryRunOption);
 root.AddOption(useFakeLlmOption);
@@ -50,6 +53,7 @@ root.SetHandler(async context =>
         SourcePath = context.ParseResult.GetValueForOption(sourcePathOption),
         IncludeGlob = context.ParseResult.GetValueForOption(includeGlobOption),
         GlossaryPath = context.ParseResult.GetValueForOption(glossaryPathOption),
+        OutputPathTemplate = context.ParseResult.GetValueForOption(outputPathTemplateOption),
         BaseBranch = context.ParseResult.GetValueForOption(baseBranchOption),
         DryRun = context.ParseResult.GetValueForOption(dryRunOption),
         UseFakeLlm = context.ParseResult.GetValueForOption(useFakeLlmOption),
@@ -86,6 +90,7 @@ static async Task<int> RunAsync(ActionOptionsCliOverrides cliOverrides, Cancella
             services.AddSingleton<IGlossaryService, GlossaryService>();
             services.AddSingleton<IAstReconstructor, AstReconstructor>();
             services.AddSingleton<IDriftDetector, DriftDetector>();
+            services.AddSingleton<IDocIgnoreService, DocIgnoreService>();
             services.AddSingleton<ITokenUsageTracker, TokenUsageTracker>();
 
             services.AddSingleton<IEnvironmentProvider, EnvironmentProvider>();

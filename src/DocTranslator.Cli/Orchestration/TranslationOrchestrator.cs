@@ -1,6 +1,7 @@
 using DocTranslator.Cli.Logging;
 using DocTranslator.Cli.Options;
 using DocTranslator.Core.Glossary;
+using DocTranslator.Core.Ignore;
 using DocTranslator.Core.Models;
 using DocTranslator.Core.Parsing;
 using DocTranslator.Core.Provenance;
@@ -21,6 +22,7 @@ namespace DocTranslator.Cli.Orchestration;
 /// </summary>
 public sealed class TranslationOrchestrator(
     IGlossaryService glossaryService,
+    IDocIgnoreService docIgnoreService,
     IMarkdigParserService parserService,
     IAstReconstructor astReconstructor,
     ILlmProviderFactory llmProviderFactory,
@@ -37,9 +39,10 @@ public sealed class TranslationOrchestrator(
     public async Task<int> RunAsync(ActionOptions options, CancellationToken cancellationToken)
     {
         var glossary = glossaryService.Load(Path.Combine(options.RepositoryPath, options.GlossaryPath));
+        var docIgnoreFilter = docIgnoreService.Load(Path.Combine(options.RepositoryPath, ".doc-ignore"));
         var fullGlob = CombineGlob(options.SourcePath, options.IncludeGlob);
 
-        var changedFiles = diffAnalyzer.GetChangedFiles(options.RepositoryPath, options.BaseBranch, fullGlob);
+        var changedFiles = diffAnalyzer.GetChangedFiles(options.RepositoryPath, options.BaseBranch, fullGlob, docIgnoreFilter);
         var summary = new TranslationRunSummary();
         var filesToCommit = new Dictionary<string, string>();
 
@@ -52,7 +55,7 @@ public sealed class TranslationOrchestrator(
             await TranslateChangedFilesAsync(options, glossary, changedFiles, summary, filesToCommit, cancellationToken);
         }
 
-        CollectDriftWarnings(options, summary);
+        CollectDriftWarnings(options, docIgnoreFilter, summary);
 
         var pullRequestUrl = await PublishAsync(options, summary, filesToCommit, cancellationToken);
 
@@ -99,23 +102,42 @@ public sealed class TranslationOrchestrator(
                     }
                 }
 
-                // Defensive: a single malformed placeholder/tag marker in an otherwise-valid LLM
-                // response must not abort the whole run. Skip just this file/language pair and
-                // keep going - every other file and language still gets translated and committed.
-                string outputMarkdown;
+                // Self-healing: a chunk whose translation dropped a required placeholder/tag
+                // marker is re-translated (via llmService.RepairChunkAsync) up to 2 times before
+                // falling back to leaving just that paragraph untranslated - see
+                // AstReconstructor.ReconstructAsync. Defensive: any other unexpected failure here
+                // skips just this file/language pair rather than aborting the whole run.
+                ReconstructionOutcome outcome;
                 try
                 {
-                    outputMarkdown = astReconstructor.Reconstruct(context, translatedChunks, provenance with { TargetLanguage = targetLanguage });
+                    outcome = await astReconstructor.ReconstructAsync(
+                        context,
+                        translatedChunks,
+                        (chunk, previousText, missing, ct) => llmService.RepairChunkAsync(chunk, previousText, missing, targetLanguage, glossary, ct),
+                        provenance with { TargetLanguage = targetLanguage },
+                        cancellationToken);
                 }
-                catch (ReconstructionParseException ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    summary.Errors.Add($"{changedFile.Path} [{targetLanguage}]: {ex.Message}");
-                    log.LogError($"[{targetLanguage}] Skipped - malformed translation response: {ex.Message}", changedFile.Path);
+                    summary.Errors.Add($"{changedFile.Path} [{targetLanguage}]: unexpected reconstruction failure - {ex.Message}");
+                    log.LogError($"[{targetLanguage}] Unexpected reconstruction failure: {ex.Message}", changedFile.Path);
                     continue;
                 }
 
+                foreach (var chunkId in outcome.RepairedChunkIds)
+                {
+                    summary.SelfHealedChunks.Add($"{changedFile.Path} [{targetLanguage}] chunk {chunkId}");
+                }
+
+                foreach (var chunkId in outcome.UnrecoverableChunkIds)
+                {
+                    var message = $"{changedFile.Path} [{targetLanguage}] chunk {chunkId}: kept dropping required markers after repair attempts; left untranslated.";
+                    summary.UnrecoverableChunks.Add(message);
+                    log.LogWarning(message, changedFile.Path);
+                }
+
                 var outputRelativePath = outputPathResolver.Resolve(options.OutputPathTemplate, targetLanguage, changedFile.Path);
-                filesToCommit[outputRelativePath] = outputMarkdown;
+                filesToCommit[outputRelativePath] = outcome.Markdown;
 
                 var (translatedSoFar, cachedSoFar) = languageStats[targetLanguage];
                 languageStats[targetLanguage] = (translatedSoFar + translatedChunks.Count, cachedSoFar + fromCache);
@@ -176,7 +198,7 @@ public sealed class TranslationOrchestrator(
     /// any existing translated output whose provenance header no longer matches its source's
     /// current hash - catches translations that fell out of sync from an earlier failed/skipped run.
     /// </summary>
-    private void CollectDriftWarnings(ActionOptions options, TranslationRunSummary summary)
+    private void CollectDriftWarnings(ActionOptions options, IDocIgnoreFilter docIgnoreFilter, TranslationRunSummary summary)
     {
         var sourceRoot = Path.Combine(options.RepositoryPath, options.SourcePath);
         if (!Directory.Exists(sourceRoot))
@@ -191,6 +213,11 @@ public sealed class TranslationOrchestrator(
         foreach (var absoluteSourcePath in matches)
         {
             var relativeSourcePath = Path.GetRelativePath(options.RepositoryPath, absoluteSourcePath).Replace('\\', '/');
+
+            if (docIgnoreFilter.IsIgnored(relativeSourcePath))
+            {
+                continue;
+            }
 
             foreach (var targetLanguage in options.TargetLanguages)
             {

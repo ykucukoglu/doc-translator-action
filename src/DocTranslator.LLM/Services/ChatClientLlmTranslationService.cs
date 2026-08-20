@@ -135,4 +135,49 @@ public sealed class ChatClientLlmTranslationService(
         throw new LlmTranslationException(
             $"Translation via '{ProviderName}' failed after {maxRetries} attempt(s).", lastError);
     }
+
+    public async Task<TranslatedChunk> RepairChunkAsync(
+        TranslationChunk chunk,
+        string previousTranslatedText,
+        IReadOnlyList<string> missingMarkers,
+        string targetLanguageCode,
+        GlossaryContext glossary,
+        CancellationToken cancellationToken)
+    {
+        var messages = promptBuilder.Build([chunk], targetLanguageCode, glossary).ToList();
+        messages.Add(new ChatMessage(ChatRole.Assistant, previousTranslatedText));
+        messages.Add(new ChatMessage(
+            ChatRole.User,
+            "That translation dropped markers that must be preserved EXACTLY, verbatim, in their original relative position: "
+            + string.Join("; ", missingMarkers)
+            + $". Return the corrected translation for chunk id '{chunk.ChunkId}' only, with every marker restored."));
+
+        try
+        {
+            var response = await resiliencePipeline.ExecuteAsync(
+                async ct => await chatClient
+                    .GetResponseAsync<TranslationBatchResult>(messages, options: null, useJsonSchemaResponseFormat: true, ct)
+                    .ConfigureAwait(false),
+                cancellationToken).ConfigureAwait(false);
+
+            if (response.Usage is { } usage)
+            {
+                tokenUsageTracker.Record(usage.InputTokenCount ?? 0, usage.OutputTokenCount ?? 0);
+            }
+
+            if (response.TryGetResult(out var result) && result is { Translations.Count: > 0 })
+            {
+                var match = result.Translations.FirstOrDefault(t => t.ChunkId == chunk.ChunkId) ?? result.Translations[0];
+                return new TranslatedChunk(chunk.ChunkId, match.TranslatedText);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Fall through: the caller (AstReconstructor) re-validates whatever we return and
+            // either retries again or falls back to the untranslated source text - a failed
+            // repair attempt here is not itself a fatal error for the run.
+        }
+
+        return new TranslatedChunk(chunk.ChunkId, previousTranslatedText);
+    }
 }

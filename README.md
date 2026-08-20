@@ -36,6 +36,12 @@ dotnet run --project src/DocTranslator.Cli -- \
 - **Concurrency**: LLM batch requests for a file/language run concurrently, bounded by `max-parallel-requests` (default 4, via a `SemaphoreSlim`).
 - **Token usage**: prompt/completion token totals are accumulated across the whole run and reported in both the console log and the Job Summary.
 
+## Self-healing & production hardening
+
+- **Self-healing AST reconstruction**: if a translated chunk drops a required placeholder (`⟦CODE0⟧`) or tag (`<em0>...</em0>`), that one chunk is re-translated with a repair prompt (up to 2 attempts) before falling back to leaving just that paragraph in the source language - one bad LLM response never corrupts the document or aborts the whole file.
+- **`.doc-ignore`**: a `.gitignore`-style file at the repo root (one glob per line, `#` comments) excludes files from translation entirely, e.g. `CHANGELOG.md` or `DRAFT_*.md`. See the sample file in this repo.
+- **Flexible output paths**: `output-path-template` supports `{lang}`, `{relativePath}`, `{dir}`, `{filename}`, `{ext}` - enough to express both the default per-language tree (`docs/{lang}/{relativePath}`) and co-located naming styles used by MkDocs/Docusaurus setups (`{dir}/{filename}.{lang}.{ext}` turns `docs/guide.md` into `docs/guide.de.md`).
+
 ## Glossary
 
 `.doc-terms.json` at the repo root controls which terms are never translated (`dont_translate`) and per-language required renderings (`custom_mappings`). See the sample file in this repo.

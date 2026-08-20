@@ -208,6 +208,55 @@ public class ChatClientLlmTranslationServiceTests
     }
 
     [Fact]
+    public async Task RepairChunkAsync_ProviderReturnsCorrectedTranslation_ReturnsIt()
+    {
+        var chunk = Chunk("c1");
+        var repairedJson = """{"translations":[{"chunkId":"c1","translatedText":"hallo ⟦CODE0⟧"}]}""";
+        var client = MockClientReturning(repairedJson);
+        var sut = BuildService(client.Object);
+
+        var result = await sut.RepairChunkAsync(chunk, "hallo (dropped the marker)", ["the placeholder at index 0"], "de", GlossaryContext.Empty, CancellationToken.None);
+
+        result.ChunkId.Should().Be("c1");
+        result.TranslatedText.Should().Be("hallo ⟦CODE0⟧");
+    }
+
+    [Fact]
+    public async Task RepairChunkAsync_PromptIncludesPreviousAttemptAndMissingMarkers()
+    {
+        var chunk = Chunk("c1");
+        var client = new Mock<IChatClient>();
+        List<ChatMessage>? capturedMessages = null;
+        client.Setup(c => c.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions>(), It.IsAny<CancellationToken>()))
+            .Callback((IEnumerable<ChatMessage> messages, ChatOptions? _, CancellationToken _) => capturedMessages = messages.ToList())
+            .ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, """{"translations":[{"chunkId":"c1","translatedText":"fixed"}]}""")));
+
+        var sut = BuildService(client.Object);
+
+        await sut.RepairChunkAsync(chunk, "the bad attempt", ["the placeholder at index 0"], "de", GlossaryContext.Empty, CancellationToken.None);
+
+        capturedMessages.Should().NotBeNull();
+        capturedMessages!.Should().Contain(m => m.Text.Contains("the bad attempt"));
+        capturedMessages.Should().Contain(m => m.Text.Contains("the placeholder at index 0"));
+    }
+
+    [Fact]
+    public async Task RepairChunkAsync_ProviderThrows_FallsBackToPreviousAttemptWithoutThrowing()
+    {
+        var chunk = Chunk("c1");
+        var client = new Mock<IChatClient>();
+        client.Setup(c => c.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("provider unavailable"));
+
+        var sut = BuildService(client.Object);
+
+        var result = await sut.RepairChunkAsync(chunk, "the previous attempt", ["the placeholder at index 0"], "de", GlossaryContext.Empty, CancellationToken.None);
+
+        result.ChunkId.Should().Be("c1");
+        result.TranslatedText.Should().Be("the previous attempt");
+    }
+
+    [Fact]
     public async Task TranslateAsync_MultipleBatches_NeverExceedsMaxParallelRequestsConcurrently()
     {
         var bigText = new string('x', 20_000); // forces multiple batches, same trick as the earlier splitting test

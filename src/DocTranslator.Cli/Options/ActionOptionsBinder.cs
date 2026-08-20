@@ -14,6 +14,7 @@ public sealed class ActionOptionsCliOverrides
     public string? SourcePath { get; init; }
     public string? IncludeGlob { get; init; }
     public string? GlossaryPath { get; init; }
+    public string? OutputPathTemplate { get; init; }
     public string? BaseBranch { get; init; }
     public bool? DryRun { get; init; }
     public bool? UseFakeLlm { get; init; }
@@ -64,7 +65,7 @@ public static class ActionOptionsBinder
             SourcePath = cli.SourcePath ?? ReadInput("source-path") ?? "docs",
             IncludeGlob = cli.IncludeGlob ?? ReadInput("include-glob") ?? "**/*.md",
             GlossaryPath = cli.GlossaryPath ?? ReadInput("glossary-path") ?? ".doc-terms.json",
-            OutputPathTemplate = ReadInput("output-path-template") ?? "docs/{lang}/{relativePath}",
+            OutputPathTemplate = cli.OutputPathTemplate ?? ReadInput("output-path-template") ?? "docs/{lang}/{relativePath}",
             BaseBranch = cli.BaseBranch ?? ReadInput("base-branch") ?? Environment.GetEnvironmentVariable("GITHUB_BASE_REF"),
             DryRun = dryRun,
             FailOnStaleTranslations = ParseBool(ReadInput("fail-on-stale-translations")) ?? false,

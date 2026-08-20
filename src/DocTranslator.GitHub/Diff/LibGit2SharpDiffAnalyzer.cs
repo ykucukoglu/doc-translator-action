@@ -1,3 +1,4 @@
+using DocTranslator.Core.Ignore;
 using LibGit2Sharp;
 using Microsoft.Extensions.FileSystemGlobbing;
 
@@ -6,9 +7,10 @@ namespace DocTranslator.GitHub.Diff;
 public interface IGitDiffAnalyzer
 {
     /// <summary>
-    /// Lists files changed between a base ref and HEAD, filtered by <paramref name="includeGlob"/>.
-    /// This is the file-level cost-optimization layer required by the spec - it decides *which
-    /// files* get parsed/translated at all; the content-hash translation cache (see
+    /// Lists files changed between a base ref and HEAD, filtered by <paramref name="includeGlob"/>
+    /// and then by <paramref name="ignoreFilter"/> (<c>.doc-ignore</c>, if any). This is the
+    /// file-level cost-optimization layer required by the spec - it decides *which files* get
+    /// parsed/translated at all; the content-hash translation cache (see
     /// DocTranslator.GitHub.Cache) is the paragraph-level layer on top of it.
     /// </summary>
     /// <param name="baseRef">
@@ -16,7 +18,7 @@ public interface IGitDiffAnalyzer
     /// parent (i.e. the single most recent commit - the push-event case). For pull-request
     /// events, callers should pass the PR's base branch (from GITHUB_BASE_REF).
     /// </param>
-    IReadOnlyList<ChangedFile> GetChangedFiles(string repositoryPath, string? baseRef, string includeGlob);
+    IReadOnlyList<ChangedFile> GetChangedFiles(string repositoryPath, string? baseRef, string includeGlob, IDocIgnoreFilter? ignoreFilter = null);
 
     /// <summary>The short (7-char) SHA of HEAD, used for deterministic branch naming (<c>doc-translator/{shortSha}</c>).</summary>
     string GetHeadShortSha(string repositoryPath);
@@ -24,7 +26,7 @@ public interface IGitDiffAnalyzer
 
 public sealed class LibGit2SharpDiffAnalyzer : IGitDiffAnalyzer
 {
-    public IReadOnlyList<ChangedFile> GetChangedFiles(string repositoryPath, string? baseRef, string includeGlob)
+    public IReadOnlyList<ChangedFile> GetChangedFiles(string repositoryPath, string? baseRef, string includeGlob, IDocIgnoreFilter? ignoreFilter = null)
     {
         using var repo = new Repository(repositoryPath);
 
@@ -46,6 +48,11 @@ public sealed class LibGit2SharpDiffAnalyzer : IGitDiffAnalyzer
             }
 
             if (!matcher.Match(change.Path).HasMatches)
+            {
+                continue;
+            }
+
+            if (ignoreFilter?.IsIgnored(change.Path) == true)
             {
                 continue;
             }

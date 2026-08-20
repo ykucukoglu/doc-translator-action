@@ -38,9 +38,19 @@ public sealed class ConsoleSummaryWriter(ITokenUsageTracker tokenUsageTracker) :
             Console.WriteLine($"  drift warning: {warning}");
         }
 
+        foreach (var chunkId in summary.SelfHealedChunks)
+        {
+            Console.WriteLine($"  self-healed: {chunkId}");
+        }
+
+        foreach (var warning in summary.UnrecoverableChunks)
+        {
+            Console.WriteLine($"  left untranslated: {warning}");
+        }
+
         foreach (var error in summary.Errors)
         {
-            Console.WriteLine($"  skipped (malformed translation response): {error}");
+            Console.WriteLine($"  skipped (unexpected reconstruction failure): {error}");
         }
 
         if (dryRun)

@@ -47,7 +47,7 @@ inputs:
     required: false
     default: '.doc-terms.json'
   output-path-template:
-    description: 'Template for translated file output paths. {lang} and {relativePath} are substituted.'
+    description: 'Template for translated file output paths. Supports {lang}, {relativePath}, {dir}, {filename}, {ext} - e.g. "{dir}/{filename}.{lang}.{ext}" for MkDocs/Docusaurus-style co-located naming.'
     required: false
     default: 'docs/{lang}/{relativePath}'
   base-branch:

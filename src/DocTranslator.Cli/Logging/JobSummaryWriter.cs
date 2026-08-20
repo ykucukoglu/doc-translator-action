@@ -69,7 +69,9 @@ public sealed class JobSummaryWriter(ITokenUsageTracker tokenUsageTracker) : IJo
 
         AppendListSection(sb, "Stale translations detected", summary.DriftWarnings);
         AppendListSection(sb, "Glossary warnings", summary.GlossaryWarnings);
-        AppendListSection(sb, "Skipped (malformed translation response)", summary.Errors);
+        AppendListSection(sb, "Self-healed (marker repaired after retry)", summary.SelfHealedChunks);
+        AppendListSection(sb, "Left untranslated (markers kept dropping after repair attempts)", summary.UnrecoverableChunks);
+        AppendListSection(sb, "Skipped (unexpected reconstruction failure)", summary.Errors);
 
         await File.AppendAllTextAsync(summaryFile, sb.ToString(), cancellationToken).ConfigureAwait(false);
     }

@@ -28,4 +28,16 @@ public sealed class FakeTranslationService : ILlmTranslationService
 
         return Task.FromResult(result);
     }
+
+    public Task<TranslatedChunk> RepairChunkAsync(
+        TranslationChunk chunk,
+        string previousTranslatedText,
+        IReadOnlyList<string> missingMarkers,
+        string targetLanguageCode,
+        GlossaryContext glossary,
+        CancellationToken cancellationToken) =>
+        // Marker-preserving by construction (same prefix-only trick as TranslateAsync), so the
+        // fake provider never actually needs repairing in practice - this exists purely to
+        // satisfy the interface.
+        Task.FromResult(new TranslatedChunk(chunk.ChunkId, $"[{targetLanguageCode}] {chunk.SourceText}"));
 }

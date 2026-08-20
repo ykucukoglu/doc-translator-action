@@ -1,0 +1,5 @@
+# doc-translator-action: files/globs excluded from translation, one pattern per line.
+# A bare filename (no "/") matches at any depth, like .gitignore.
+
+CHANGELOG.md
+DRAFT_*.md

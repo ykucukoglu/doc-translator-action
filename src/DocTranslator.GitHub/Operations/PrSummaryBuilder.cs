@@ -32,37 +32,28 @@ public sealed class PrSummaryBuilder : IPrSummaryBuilder
             sb.AppendLine();
         }
 
-        if (summary.DriftWarnings.Count > 0)
-        {
-            sb.AppendLine("### Stale translations detected").AppendLine();
-            foreach (var warning in summary.DriftWarnings)
-            {
-                sb.Append("- ").AppendLine(warning);
-            }
-
-            sb.AppendLine();
-        }
-
-        if (summary.GlossaryWarnings.Count > 0)
-        {
-            sb.AppendLine("### Glossary warnings").AppendLine();
-            foreach (var warning in summary.GlossaryWarnings)
-            {
-                sb.Append("- ").AppendLine(warning);
-            }
-
-            sb.AppendLine();
-        }
-
-        if (summary.Errors.Count > 0)
-        {
-            sb.AppendLine("### Skipped (malformed translation response)").AppendLine();
-            foreach (var error in summary.Errors)
-            {
-                sb.Append("- ").AppendLine(error);
-            }
-        }
+        AppendListSection(sb, "Stale translations detected", summary.DriftWarnings);
+        AppendListSection(sb, "Glossary warnings", summary.GlossaryWarnings);
+        AppendListSection(sb, "Self-healed (marker repaired after retry)", summary.SelfHealedChunks);
+        AppendListSection(sb, "Left untranslated (markers kept dropping after repair attempts)", summary.UnrecoverableChunks);
+        AppendListSection(sb, "Skipped (unexpected reconstruction failure)", summary.Errors);
 
         return sb.ToString();
+    }
+
+    private static void AppendListSection(StringBuilder sb, string title, List<string> items)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        sb.Append("### ").AppendLine(title).AppendLine();
+        foreach (var item in items)
+        {
+            sb.Append("- ").AppendLine(item);
+        }
+
+        sb.AppendLine();
     }
 }

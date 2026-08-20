@@ -17,4 +17,19 @@ public interface ILlmTranslationService : IDisposable
         string targetLanguageCode,
         GlossaryContext glossary,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Re-translates a single chunk whose previous translation dropped a required placeholder/tag
+    /// marker, with a prompt that shows the model its own bad output and exactly which markers
+    /// must be restored. Backs the self-healing loop in <c>AstReconstructor.ReconstructAsync</c>
+    /// (via <c>Core.Reconstruction.ChunkRepairCallback</c>) - best-effort: the caller re-validates
+    /// the result and decides whether to retry again or fall back.
+    /// </summary>
+    Task<TranslatedChunk> RepairChunkAsync(
+        TranslationChunk chunk,
+        string previousTranslatedText,
+        IReadOnlyList<string> missingMarkers,
+        string targetLanguageCode,
+        GlossaryContext glossary,
+        CancellationToken cancellationToken);
 }
