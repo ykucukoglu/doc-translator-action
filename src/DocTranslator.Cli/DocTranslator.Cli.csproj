@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DocTranslator.Core\DocTranslator.Core.csproj" />
+    <ProjectReference Include="..\DocTranslator.LLM\DocTranslator.LLM.csproj" />
+    <ProjectReference Include="..\DocTranslator.GitHub\DocTranslator.GitHub.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>DocTranslator.Cli</RootNamespace>
+    <AssemblyName>DocTranslator.Cli</AssemblyName>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

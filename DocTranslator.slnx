@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DocTranslator.Cli/DocTranslator.Cli.csproj" />
+    <Project Path="src/DocTranslator.Core/DocTranslator.Core.csproj" />
+    <Project Path="src/DocTranslator.GitHub/DocTranslator.GitHub.csproj" />
+    <Project Path="src/DocTranslator.LLM/DocTranslator.LLM.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DocTranslator.Core.Tests/DocTranslator.Core.Tests.csproj" />
+    <Project Path="tests/DocTranslator.LLM.Tests/DocTranslator.LLM.Tests.csproj" />
+  </Folder>
+</Solution>
