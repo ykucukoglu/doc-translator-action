@@ -32,10 +32,13 @@ FROM mcr.microsoft.com/dotnet/runtime:9.0 AS runtime
 WORKDIR /app
 COPY --from=build /app ./
 
-# See docker-entrypoint.sh: GitHub Actions checks out the repo as the runner's own user but runs
-# Docker actions as root, which trips libgit2's "dubious ownership" safety check (the same
-# CVE-2022-24765 fix git itself has) unless the workspace is explicitly marked safe first.
-COPY docker-entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# GitHub Actions checks out the repo as the runner's own user but runs Docker actions as root,
+# which trips libgit2's "dubious ownership" safety check (the same CVE-2022-24765 fix git itself
+# has) unless the workspace is explicitly marked safe. Written into the image at build time,
+# rather than by a runtime entrypoint shell script, because GitHub Actions passes hyphenated
+# INPUT_* env vars (e.g. INPUT_PR-MODE) that /bin/sh silently drops when it execs a child process
+# - POSIX shells only carry forward environment entries whose names are valid shell identifiers.
+# An exec-form ENTRYPOINT with no intermediate shell is required for those inputs to survive.
+RUN printf '[safe]\n\tdirectory = *\n' >> /root/.gitconfig
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["dotnet", "/app/DocTranslator.Cli.dll"]
