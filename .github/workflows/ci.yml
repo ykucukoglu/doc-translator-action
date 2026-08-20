@@ -25,3 +25,26 @@ jobs:
 
       - name: Test
         run: dotnet test DocTranslator.sln -c Release --no-build
+
+      # Exercises the full Cli wiring (diff -> parse -> translate -> reconstruct -> write) against
+      # a real throwaway repo, with --use-fake-llm standing in for a real provider - no network,
+      # no API key. This is the same command that caught the output-path-duplication and
+      # self-translation-cascade bugs by hand during dogfooding; running it on every push catches
+      # that class of orchestration-wiring regression before a real workflow run has to.
+      - name: Smoke test (fake LLM, dry run)
+        run: |
+          set -e
+          scratch=$(mktemp -d)
+          mkdir -p "$scratch/docs"
+          cd "$scratch"
+          git init -q
+          git config user.email smoke-test@example.com
+          git config user.name "smoke test"
+          echo "# Hello" > docs/guide.md
+          git add . && git commit -q -m base
+          echo "# Hello revised" > docs/guide.md
+          git add . && git commit -q -m revise
+          dotnet run -c Release --project "$GITHUB_WORKSPACE/src/DocTranslator.Cli" -- \
+            --dry-run --use-fake-llm --target-languages tr --source-path docs
+          test -f docs/tr/guide.md
+          test ! -d docs/tr/docs

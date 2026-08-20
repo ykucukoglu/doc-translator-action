@@ -16,10 +16,11 @@ dotnet build DocTranslator.sln
 dotnet test DocTranslator.sln
 ```
 
-Every change must keep `dotnet test` green. The two test projects cover different layers:
+Every change must keep `dotnet test` green. The test projects cover different layers:
 
 - `tests/DocTranslator.Core.Tests` - AST parsing/reconstruction, glossary, drift detection, `.doc-ignore`. This is the correctness gate for the whole system: `AstReconstructorRoundTripTests` and `AstReconstructorSelfHealingTests` prove that code blocks, inline code, and link/image URLs survive a full parse → translate → reconstruct cycle byte-for-byte.
 - `tests/DocTranslator.LLM.Tests` - provider selection, prompt construction, batching, retry/resilience, structured-output parsing, mocked against `IChatClient` (no real API calls).
+- `tests/DocTranslator.Cli.Tests` - `TranslationOrchestrator` wiring, against a real throwaway git repo with only the LLM call and the GitHub PR API faked. If you're touching `Orchestration/` or `Options/`, add a case here: this is the layer where output-path resolution, `.doc-ignore`/self-translation guards, and env-var/config-file precedence actually get exercised end to end - a change here that only compiles clean isn't the same as one that's been run.
 
 ### Running the CLI locally without any API keys
 
