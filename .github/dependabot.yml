@@ -20,3 +20,12 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # The project deliberately targets .NET 9 (every .csproj's TargetFramework, and the SDK/
+    # runtime base images) - see the Dockerfile's own comment on this. A major-version bump here
+    # is a deliberate, whole-project upgrade decision, not something to accept from an automated
+    # PR; only patch/minor updates within 9.x are proposed.
+    ignore:
+      - dependency-name: "mcr.microsoft.com/dotnet/sdk"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "mcr.microsoft.com/dotnet/runtime"
+        update-types: ["version-update:semver-major"]
