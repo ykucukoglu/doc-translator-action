@@ -38,8 +38,52 @@ public static class ChatClientResiliencePipeline
                 // has a chance of crossing into the next quota window.
                 Delay = TimeSpan.FromSeconds(3),
                 UseJitter = true,
+                // Providers that return a Retry-After header on 429 are telling us exactly how
+                // long the current quota window has left - waiting that long (plus a little
+                // headroom) beats guessing with exponential backoff, which just as easily waits
+                // too little (retries land in the same window) or too much. Only ClientResultException
+                // (the OpenAI SDK, built on System.ClientModel) exposes response headers on the
+                // exception; HttpRequestException (Anthropic, Google.GenAI) doesn't carry them, so
+                // those fall through to the exponential default below.
+                DelayGenerator = args =>
+                {
+                    if (args.Outcome.Exception is ClientResultException clientEx
+                        && TryGetRetryAfter(clientEx, out var retryAfter))
+                    {
+                        return ValueTask.FromResult<TimeSpan?>(retryAfter);
+                    }
+
+                    return ValueTask.FromResult<TimeSpan?>(null);
+                },
             })
             .Build();
 
     private static bool IsTransientStatus(int statusCode) => statusCode == 429 || statusCode >= 500;
+
+    private static bool TryGetRetryAfter(ClientResultException exception, out TimeSpan delay)
+    {
+        delay = default;
+
+        var headers = exception.GetRawResponse()?.Headers;
+        if (headers is null || !headers.TryGetValue("Retry-After", out var value))
+        {
+            return false;
+        }
+
+        // Retry-After is either delay-seconds or an HTTP-date (RFC 9110 §10.2.3) - try both forms.
+        if (int.TryParse(value, out var seconds) && seconds >= 0)
+        {
+            delay = TimeSpan.FromSeconds(seconds);
+            return true;
+        }
+
+        if (DateTimeOffset.TryParse(value, out var when))
+        {
+            var untilThen = when - DateTimeOffset.UtcNow;
+            delay = untilThen > TimeSpan.Zero ? untilThen : TimeSpan.Zero;
+            return true;
+        }
+
+        return false;
+    }
 }
