@@ -39,6 +39,11 @@ COPY --from=build /app ./
 # INPUT_* env vars (e.g. INPUT_PR-MODE) that /bin/sh silently drops when it execs a child process
 # - POSIX shells only carry forward environment entries whose names are valid shell identifiers.
 # An exec-form ENTRYPOINT with no intermediate shell is required for those inputs to survive.
-RUN printf '[safe]\n\tdirectory = *\n' >> /root/.gitconfig
+#
+# Goes into the system-wide gitconfig (/etc/gitconfig), not $HOME/.gitconfig: GitHub Actions also
+# passes through the runner's own HOME (e.g. /home/runner) via `-e "HOME"` with no value, which
+# overrides whatever HOME this image sets - a per-user config file would silently end up at the
+# wrong path. /etc/gitconfig isn't keyed to HOME at all, so it's read regardless.
+RUN printf '[safe]\n\tdirectory = *\n' >> /etc/gitconfig
 
 ENTRYPOINT ["dotnet", "/app/DocTranslator.Cli.dll"]
