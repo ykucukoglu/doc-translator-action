@@ -58,6 +58,10 @@ dotnet run --project src/DocTranslator.Cli -- \
 
 `--pr-mode false` writes the translated files to disk without pushing anything, and `--use-fake-llm` swaps in a trivial marker-wrapping translator so you can inspect the output structure without spending API credits.
 
+## Advanced configuration
+
+For settings you don't want to repeat across every workflow run, point `config-path` at a JSON file in your repository (e.g. `.doc-translator.json`) with any of `sourcePath`, `includeGlob`, `outputPathTemplate`, `baseBranch`, `failOnStaleTranslations`, `maxParallelRequests`, `llmProvider`, or the per-provider model overrides. Action inputs always take precedence over the config file, so you can still override a single value per-run without editing it.
+
 ## Next steps
 
 - Read [architecture.md](architecture.md) for how the AST parse/translate/reconstruct pipeline actually works.
