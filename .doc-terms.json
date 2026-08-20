@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "case_sensitive": false,
+  "dont_translate": ["GitHub", "API", "npm", "Markdig", "Docker", "JSON", "SDK", "LLM"],
+  "custom_mappings": {
+    "de": { "repository": "Repository", "pull request": "Pull Request" },
+    "fr": { "repository": "dépôt", "pull request": "requête de tirage" },
+    "tr": { "repository": "depo", "pull request": "değişiklik isteği" }
+  }
+}

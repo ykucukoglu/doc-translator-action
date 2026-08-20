@@ -21,4 +21,8 @@
     <ProjectReference Include="..\..\src\DocTranslator.Core\DocTranslator.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
