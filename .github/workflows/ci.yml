@@ -32,13 +32,15 @@ jobs:
       # self-translation-cascade bugs by hand during dogfooding; running it on every push catches
       # that class of orchestration-wiring regression before a real workflow run has to.
       - name: Smoke test (fake LLM, dry run)
-        # On the pull_request trigger, the runner sets GITHUB_BASE_REF=main for *this* job's own
-        # checkout - which the Cli would otherwise inherit and try to resolve against the freshly
-        # `git init`'d scratch repo below (which has no "main" ref at all). Unset it so the smoke
-        # test's own base-ref resolution behaves like a real local/push run, unaffected by the CI
-        # job's own trigger event.
-        env:
-          GITHUB_BASE_REF: ""
+        # On the pull_request trigger, the runner sets GITHUB_BASE_REF=main for the whole job -
+        # which the Cli would otherwise inherit and try to resolve against the freshly `git
+        # init`'d scratch repo below (which has no "main" ref at all). A step-level `env:`
+        # override was tried first but didn't reliably reach the `dotnet run` child process here
+        # (likely the MSBuild/compiler server persisting the job's original environment across
+        # steps) - passing --base-branch "" as an explicit CLI argument sidesteps environment
+        # propagation entirely: ActionOptionsCliOverrides.BaseBranch becomes "" (not null), which
+        # short-circuits every env-var-based fallback, and the diff analyzer treats an empty
+        # baseRef as "diff against the previous commit", same as a real push event.
         run: |
           set -e
           scratch=$(mktemp -d)
@@ -52,6 +54,6 @@ jobs:
           echo "# Hello revised" > docs/guide.md
           git add . && git commit -q -m revise
           dotnet run -c Release --project "$GITHUB_WORKSPACE/src/DocTranslator.Cli" -- \
-            --dry-run --use-fake-llm --target-languages tr --source-path docs
+            --dry-run --use-fake-llm --target-languages tr --source-path docs --base-branch ""
           test -f docs/tr/guide.md
           test ! -d docs/tr/docs
