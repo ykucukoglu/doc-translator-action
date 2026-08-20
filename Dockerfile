@@ -5,7 +5,7 @@
 # compatibility, and container cold-start is negligible next to LLM network latency anyway.
 # See the implementation plan's Dockerfile section for the full rationale.
 
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Restore first, from just the project files, so dependency layers are cached across builds
