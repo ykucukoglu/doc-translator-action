@@ -79,10 +79,23 @@ public sealed class TranslationOrchestrator(
 
         foreach (var changedFile in changedFiles)
         {
-            using var group = log.BeginGroup($"Translate {changedFile.Path}");
-
             var absoluteSourcePath = Path.Combine(options.RepositoryPath, changedFile.Path);
             var markdown = await File.ReadAllTextAsync(absoluteSourcePath, cancellationToken);
+
+            // A previously-generated translation can itself land back inside source-path/
+            // include-glob (e.g. output-path-template co-locating "guide.tr.md" next to
+            // "guide.md", or the include-glob simply not excluding the {lang} subfolder a
+            // directory-based template writes into) - without this check, a later run would treat
+            // its own output as new source and re-translate already-translated text. Every
+            // generated file starts with this provenance header (see ToHeaderComment), so it's a
+            // reliable, template-agnostic "we wrote this" signal to skip on regardless of naming.
+            if (markdown.StartsWith(TranslationProvenance.HeaderPrefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            using var group = log.BeginGroup($"Translate {changedFile.Path}");
+
             var context = parserService.ParseAndExtractChunks(changedFile.Path, markdown);
             var sourceTextByChunkId = context.Chunks.ToDictionary(c => c.ChunkId, c => c.SourceText);
             var provenance = new TranslationProvenance(driftDetector.HashFile(absoluteSourcePath), changedFile.Path, string.Empty, DateTimeOffset.UtcNow);

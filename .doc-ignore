@@ -3,3 +3,9 @@
 
 CHANGELOG.md
 DRAFT_*.md
+
+# This repo's own dogfooding output (docs/{lang}/...) - belt-and-suspenders alongside the
+# provenance-header check in TranslationOrchestrator, which is what actually protects any
+# output-path-template shape, including ones that don't use a dedicated language folder.
+docs/tr/**
+docs/de/**
