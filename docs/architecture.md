@@ -26,6 +26,7 @@ Markdown translation tools that operate on raw text or regular expressions event
 - **Concurrency** - batches for one file/language translate concurrently, bounded by `max-parallel-requests` via a `SemaphoreSlim`.
 - **Resilience** - transient HTTP failures (429/5xx) are retried with Polly v8 exponential backoff, independent of the semantic retry that repairs malformed JSON or missing markers.
 - **Drift detection** - every translated file carries an HTML-comment provenance header (source content hash + timestamp). A later run flags any translation whose source has since changed without a corresponding re-translation.
+- **No self-translation** - that same provenance header doubles as a "this file is generated output" marker: any changed file that starts with it is skipped as a source, regardless of `output-path-template` shape, so a translation this action wrote can never be picked back up and re-translated on a later run.
 
 ## Configuration precedence
 
