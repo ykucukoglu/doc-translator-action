@@ -1,6 +1,9 @@
+using System.Globalization;
+using DocTranslator.Core.Telemetry;
 using DocTranslator.LLM.Batching;
 using DocTranslator.LLM.Exceptions;
 using DocTranslator.LLM.Prompting;
+using DocTranslator.LLM.Resilience;
 using DocTranslator.LLM.Retry;
 using DocTranslator.LLM.Services;
 using Microsoft.Extensions.AI;
@@ -24,11 +27,13 @@ public sealed class LlmProviderFactory(
     IChatClientFactory chatClientFactory,
     IPromptBuilder promptBuilder,
     IChunkBatcher chunkBatcher,
-    ILlmResponseValidator validator) : ILlmProviderFactory
+    ILlmResponseValidator validator,
+    ITokenUsageTracker tokenUsageTracker) : ILlmProviderFactory
 {
     private const string DefaultGeminiModel = "gemini-2.5-flash";
     private const string DefaultOpenAiModel = "gpt-5-mini";
     private const string DefaultClaudeModel = "claude-sonnet-5";
+    private const int DefaultMaxParallelRequests = 4;
 
     public ILlmTranslationService Create()
     {
@@ -96,12 +101,28 @@ public sealed class LlmProviderFactory(
     }
 
     private ChatClientLlmTranslationService BuildService(string providerName, IChatClient chatClient) =>
-        new(chatClient, providerName, promptBuilder, chunkBatcher, validator);
+        new(
+            chatClient,
+            providerName,
+            promptBuilder,
+            chunkBatcher,
+            validator,
+            ChatClientResiliencePipeline.Create(),
+            tokenUsageTracker,
+            MaxParallelRequestsOrDefault());
 
     private string ModelOrDefault(string envVarName, string defaultModel)
     {
         var value = environment.GetEnvironmentVariable(envVarName);
         return string.IsNullOrWhiteSpace(value) ? defaultModel : value;
+    }
+
+    private int MaxParallelRequestsOrDefault()
+    {
+        var value = environment.GetEnvironmentVariable("INPUT_MAX_PARALLEL_REQUESTS");
+        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed > 0
+            ? parsed
+            : DefaultMaxParallelRequests;
     }
 
     private static string RequireKey(string? key, string envVarName) =>

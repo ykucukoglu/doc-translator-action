@@ -35,5 +35,8 @@ public sealed class ActionOptions
 
     public bool FailOnStaleTranslations { get; init; }
 
+    /// <summary>Bounds how many LLM batch requests run concurrently (per file/language). See <c>SemaphoreSlim</c> usage in ChatClientLlmTranslationService.</summary>
+    public int MaxParallelRequests { get; init; } = 4;
+
     public string RepositoryPath { get; init; } = Directory.GetCurrentDirectory();
 }

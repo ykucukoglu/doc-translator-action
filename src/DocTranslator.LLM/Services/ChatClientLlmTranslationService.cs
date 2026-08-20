@@ -1,10 +1,12 @@
 using DocTranslator.Core.Models;
+using DocTranslator.Core.Telemetry;
 using DocTranslator.LLM.Batching;
 using DocTranslator.LLM.Dto;
 using DocTranslator.LLM.Exceptions;
 using DocTranslator.LLM.Prompting;
 using DocTranslator.LLM.Retry;
 using Microsoft.Extensions.AI;
+using Polly;
 
 namespace DocTranslator.LLM.Services;
 
@@ -15,6 +17,13 @@ namespace DocTranslator.LLM.Services;
 /// retry-with-repair - once, against that provider-agnostic interface, instead of tripled per
 /// vendor. See <see cref="DocTranslator.LLM.Providers.LlmProviderFactory"/> for how the
 /// concrete <see cref="IChatClient"/> gets constructed and handed in here.
+///
+/// Batches for one file/language translate concurrently, bounded by a
+/// <see cref="SemaphoreSlim"/> sized to <paramref name="maxParallelRequests"/> (action input
+/// <c>max-parallel-requests</c>, default 4). Each provider call is wrapped in a Polly resilience
+/// pipeline that retries transient HTTP failures (429/5xx) with exponential backoff, independent
+/// of the semantic ChunkId-validation retry below it. Token usage from every successful response
+/// is recorded into the shared <see cref="ITokenUsageTracker"/>.
 /// </summary>
 public sealed class ChatClientLlmTranslationService(
     IChatClient chatClient,
@@ -22,6 +31,9 @@ public sealed class ChatClientLlmTranslationService(
     IPromptBuilder promptBuilder,
     IChunkBatcher chunkBatcher,
     ILlmResponseValidator validator,
+    ResiliencePipeline resiliencePipeline,
+    ITokenUsageTracker tokenUsageTracker,
+    int maxParallelRequests = 4,
     int maxRetries = 3) : ILlmTranslationService
 {
     public string ProviderName { get; } = providerName;
@@ -44,16 +56,25 @@ public sealed class ChatClientLlmTranslationService(
             return [];
         }
 
-        var results = new List<TranslatedChunk>(chunks.Count);
+        var batches = chunkBatcher.Batch(chunks);
+        using var semaphore = new SemaphoreSlim(Math.Max(1, maxParallelRequests));
 
-        foreach (var batch in chunkBatcher.Batch(chunks))
+        var batchTasks = batches.Select(async batch =>
         {
-            var translated = await TranslateBatchWithRetryAsync(batch, targetLanguageCode, glossary, cancellationToken)
-                .ConfigureAwait(false);
-            results.AddRange(translated);
-        }
+            await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                return await TranslateBatchWithRetryAsync(batch, targetLanguageCode, glossary, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
 
-        return results;
+        var batchResults = await Task.WhenAll(batchTasks).ConfigureAwait(false);
+        return batchResults.SelectMany(translatedBatch => translatedBatch).ToList();
     }
 
     private async Task<IReadOnlyList<TranslatedChunk>> TranslateBatchWithRetryAsync(
@@ -80,9 +101,19 @@ public sealed class ChatClientLlmTranslationService(
                         + $"Return a translation for exactly these chunk ids, no more and no fewer: {string.Join(", ", batch.Select(c => c.ChunkId))}."));
                 }
 
-                var response = await chatClient
-                    .GetResponseAsync<TranslationBatchResult>(messages, options: null, useJsonSchemaResponseFormat: true, cancellationToken)
-                    .ConfigureAwait(false);
+                // Transient HTTP failures (429/5xx) are retried here, with backoff, before the
+                // outer loop above ever sees them - the outer loop is for malformed/mismatched
+                // *responses*, not for waiting out a rate limit.
+                var response = await resiliencePipeline.ExecuteAsync(
+                    async ct => await chatClient
+                        .GetResponseAsync<TranslationBatchResult>(messages, options: null, useJsonSchemaResponseFormat: true, ct)
+                        .ConfigureAwait(false),
+                    cancellationToken).ConfigureAwait(false);
+
+                if (response.Usage is { } usage)
+                {
+                    tokenUsageTracker.Record(usage.InputTokenCount ?? 0, usage.OutputTokenCount ?? 0);
+                }
 
                 if (!response.TryGetResult(out var result) || result is null)
                 {

@@ -28,6 +28,14 @@ dotnet run --project src/DocTranslator.Cli -- \
   --glossary-path .doc-terms.json
 ```
 
+## Observability & reliability
+
+- **Job Summary**: a Markdown execution report (per-language chunk/cache counts, token usage, warnings) is appended to the run's GitHub Actions "Summary" tab via `GITHUB_STEP_SUMMARY`.
+- **Log grouping & annotations**: each file's processing is collapsed into a `::group::`/`::endgroup::` section; glossary and reconstruction issues surface as `::warning file=...::`/`::error file=...::` PR-visible annotations, not just console lines.
+- **Resilience**: transient HTTP failures (429 rate limits, 5xx) are retried with Polly v8 exponential backoff, independent of the semantic retry that repairs malformed translation responses.
+- **Concurrency**: LLM batch requests for a file/language run concurrently, bounded by `max-parallel-requests` (default 4, via a `SemaphoreSlim`).
+- **Token usage**: prompt/completion token totals are accumulated across the whole run and reported in both the console log and the Job Summary.
+
 ## Glossary
 
 `.doc-terms.json` at the repo root controls which terms are never translated (`dont_translate`) and per-language required renderings (`custom_mappings`). See the sample file in this repo.

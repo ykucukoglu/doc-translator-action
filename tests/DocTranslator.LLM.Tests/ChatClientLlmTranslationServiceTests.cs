@@ -1,4 +1,5 @@
 using DocTranslator.Core.Models;
+using DocTranslator.Core.Telemetry;
 using DocTranslator.LLM.Batching;
 using DocTranslator.LLM.Exceptions;
 using DocTranslator.LLM.Prompting;
@@ -7,11 +8,17 @@ using DocTranslator.LLM.Services;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Moq;
+using Polly;
+using Polly.Retry;
 
 namespace DocTranslator.LLM.Tests;
 
 public class ChatClientLlmTranslationServiceTests
 {
+    // A no-op pipeline (no strategies registered) for tests that aren't exercising resilience -
+    // it just invokes the callback directly, so retry timing never slows the test suite down.
+    private static readonly ResiliencePipeline NoOpPipeline = new ResiliencePipelineBuilder().Build();
+
     private static TranslationChunk Chunk(string id, string text = "hello") =>
         new(id, text, ContentHash: "hash-" + id, BlockKind.Paragraph, "doc.md");
 
@@ -23,8 +30,22 @@ public class ChatClientLlmTranslationServiceTests
         return mock;
     }
 
-    private static ChatClientLlmTranslationService BuildService(IChatClient client, int maxRetries = 3) =>
-        new(client, "test-provider", new PromptBuilder(new DocTranslator.Core.Glossary.GlossaryService()), new ChunkBatcher(), new LlmResponseValidator(), maxRetries);
+    private static ChatClientLlmTranslationService BuildService(
+        IChatClient client,
+        int maxRetries = 3,
+        ResiliencePipeline? resiliencePipeline = null,
+        ITokenUsageTracker? tokenUsageTracker = null,
+        int maxParallelRequests = 4) =>
+        new(
+            client,
+            "test-provider",
+            new PromptBuilder(new DocTranslator.Core.Glossary.GlossaryService()),
+            new ChunkBatcher(),
+            new LlmResponseValidator(),
+            resiliencePipeline ?? NoOpPipeline,
+            tokenUsageTracker ?? new TokenUsageTracker(),
+            maxParallelRequests,
+            maxRetries);
 
     [Fact]
     public async Task TranslateAsync_WellFormedResponse_ReturnsMatchingTranslatedChunks()
@@ -136,5 +157,93 @@ public class ChatClientLlmTranslationServiceTests
 
         result.Should().HaveCount(3);
         client.Verify(c => c.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions>(), It.IsAny<CancellationToken>()), Times.AtLeast(2));
+    }
+
+    [Fact]
+    public async Task TranslateAsync_TransientHttpFailure_IsRetriedByResiliencePipelineWithoutConsumingSemanticAttempts()
+    {
+        var chunks = new[] { Chunk("c1") };
+        var goodJson = """{"translations":[{"chunkId":"c1","translatedText":"hallo"}]}""";
+
+        var client = new Mock<IChatClient>();
+        client.SetupSequence(c => c.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("service unavailable", null, System.Net.HttpStatusCode.ServiceUnavailable))
+            .ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, goodJson)));
+
+        // A fast test-only pipeline (no real delay) so this test doesn't sleep for the production backoff.
+        var fastPipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions { ShouldHandle = new PredicateBuilder().Handle<HttpRequestException>(), Delay = TimeSpan.Zero, MaxRetryAttempts = 2 })
+            .Build();
+
+        var sut = BuildService(client.Object, maxRetries: 1, resiliencePipeline: fastPipeline);
+
+        var result = await sut.TranslateAsync(chunks, "de", GlossaryContext.Empty, CancellationToken.None);
+
+        // maxRetries: 1 at the semantic layer proves this succeeded on the FIRST outer attempt -
+        // the transient failure was absorbed entirely by the resilience pipeline underneath it.
+        result.Should().ContainSingle().Which.TranslatedText.Should().Be("hallo");
+    }
+
+    [Fact]
+    public async Task TranslateAsync_SuccessfulResponse_RecordsTokenUsage()
+    {
+        var chunks = new[] { Chunk("c1") };
+        var json = """{"translations":[{"chunkId":"c1","translatedText":"hallo"}]}""";
+
+        var client = new Mock<IChatClient>();
+        client.Setup(c => c.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, json))
+            {
+                Usage = new UsageDetails { InputTokenCount = 100, OutputTokenCount = 40, TotalTokenCount = 140 },
+            });
+
+        var tracker = new TokenUsageTracker();
+        var sut = BuildService(client.Object, tokenUsageTracker: tracker);
+
+        await sut.TranslateAsync(chunks, "de", GlossaryContext.Empty, CancellationToken.None);
+
+        tracker.TotalPromptTokens.Should().Be(100);
+        tracker.TotalCompletionTokens.Should().Be(40);
+        tracker.TotalTokens.Should().Be(140);
+    }
+
+    [Fact]
+    public async Task TranslateAsync_MultipleBatches_NeverExceedsMaxParallelRequestsConcurrently()
+    {
+        var bigText = new string('x', 20_000); // forces multiple batches, same trick as the earlier splitting test
+        var chunks = Enumerable.Range(0, 6).Select(i => Chunk($"c{i}", bigText)).ToArray();
+
+        var concurrent = 0;
+        var maxObservedConcurrency = 0;
+        var gate = new object();
+
+        var client = new Mock<IChatClient>();
+        client.Setup(c => c.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions>(), It.IsAny<CancellationToken>()))
+            .Returns(async (IEnumerable<ChatMessage> messages, ChatOptions? _, CancellationToken _) =>
+            {
+                lock (gate)
+                {
+                    concurrent++;
+                    maxObservedConcurrency = Math.Max(maxObservedConcurrency, concurrent);
+                }
+
+                await Task.Delay(30, CancellationToken.None); // hold the "slot" long enough for other batches to pile up behind the semaphore
+
+                lock (gate)
+                {
+                    concurrent--;
+                }
+
+                var userMessage = messages.Last().Text;
+                var ids = chunks.Select(c => c.ChunkId).Where(id => userMessage.Contains($"[{id}]"));
+                var translations = string.Join(',', ids.Select(id => $$"""{"chunkId":"{{id}}","translatedText":"x"}"""));
+                return new ChatResponse(new ChatMessage(ChatRole.Assistant, $$"""{"translations":[{{translations}}]}"""));
+            });
+
+        var sut = BuildService(client.Object, maxParallelRequests: 2);
+
+        await sut.TranslateAsync(chunks, "de", GlossaryContext.Empty, CancellationToken.None);
+
+        maxObservedConcurrency.Should().BeLessThanOrEqualTo(2);
     }
 }

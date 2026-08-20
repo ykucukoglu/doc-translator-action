@@ -17,6 +17,7 @@ public sealed class ActionOptionsCliOverrides
     public string? BaseBranch { get; init; }
     public bool? DryRun { get; init; }
     public bool? UseFakeLlm { get; init; }
+    public int? MaxParallelRequests { get; init; }
     public bool Verbose { get; init; }
 }
 
@@ -67,6 +68,7 @@ public static class ActionOptionsBinder
             BaseBranch = cli.BaseBranch ?? ReadInput("base-branch") ?? Environment.GetEnvironmentVariable("GITHUB_BASE_REF"),
             DryRun = dryRun,
             FailOnStaleTranslations = ParseBool(ReadInput("fail-on-stale-translations")) ?? false,
+            MaxParallelRequests = cli.MaxParallelRequests ?? ParseInt(ReadInput("max-parallel-requests")) ?? 4,
             RepositoryPath = Directory.GetCurrentDirectory(),
         };
     }
@@ -86,6 +88,7 @@ public static class ActionOptionsBinder
         SetIfPresent("INPUT_GEMINI_MODEL", options.GeminiModel);
         SetIfPresent("INPUT_OPENAI_MODEL", options.OpenAiModel);
         SetIfPresent("INPUT_CLAUDE_MODEL", options.ClaudeModel);
+        SetIfPresent("INPUT_MAX_PARALLEL_REQUESTS", options.MaxParallelRequests.ToString(CultureInfo.InvariantCulture));
     }
 
     private static void SetIfPresent(string envVarName, string? value)
@@ -110,4 +113,9 @@ public static class ActionOptionsBinder
 
     private static bool? ParseBool(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : bool.Parse(value.Trim().ToLower(CultureInfo.InvariantCulture));
+
+    private static int? ParseInt(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed > 0
+            ? parsed
+            : null;
 }

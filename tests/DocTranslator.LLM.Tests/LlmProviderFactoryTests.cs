@@ -1,4 +1,5 @@
 using DocTranslator.Core.Glossary;
+using DocTranslator.Core.Telemetry;
 using DocTranslator.LLM.Batching;
 using DocTranslator.LLM.Exceptions;
 using DocTranslator.LLM.Prompting;
@@ -16,6 +17,7 @@ public class LlmProviderFactoryTests
     private readonly IPromptBuilder _promptBuilder = new PromptBuilder(new GlossaryService());
     private readonly IChunkBatcher _chunkBatcher = new ChunkBatcher();
     private readonly ILlmResponseValidator _validator = new LlmResponseValidator();
+    private readonly ITokenUsageTracker _tokenUsageTracker = new TokenUsageTracker();
 
     public LlmProviderFactoryTests()
     {
@@ -25,7 +27,7 @@ public class LlmProviderFactoryTests
     }
 
     private LlmProviderFactory BuildSut(IReadOnlyDictionary<string, string> env) =>
-        new(new FakeEnvironmentProvider(env), _chatClientFactory.Object, _promptBuilder, _chunkBatcher, _validator);
+        new(new FakeEnvironmentProvider(env), _chatClientFactory.Object, _promptBuilder, _chunkBatcher, _validator, _tokenUsageTracker);
 
     [Fact]
     public void Create_OnlyGeminiKeySet_ResolvesToGemini()
@@ -158,5 +160,32 @@ public class LlmProviderFactoryTests
         sut.Create();
 
         _chatClientFactory.Verify(f => f.CreateGemini("g-key", "gemini-custom-model"), Times.Once);
+    }
+
+    [Fact]
+    public void Create_NoMaxParallelRequestsEnvVar_ServiceStillConstructsSuccessfully()
+    {
+        // MaxParallelRequestsOrDefault falls back to 4 for anything missing/invalid - this just
+        // proves that path doesn't throw; the actual concurrency bound is covered by
+        // ChatClientLlmTranslationServiceTests (constructed directly with an explicit value there).
+        var sut = BuildSut(new Dictionary<string, string> { ["GEMINI_API_KEY"] = "g-key" });
+
+        var act = sut.Create;
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Create_InvalidMaxParallelRequestsEnvVar_FallsBackWithoutThrowing()
+    {
+        var sut = BuildSut(new Dictionary<string, string>
+        {
+            ["GEMINI_API_KEY"] = "g-key",
+            ["INPUT_MAX_PARALLEL_REQUESTS"] = "not-a-number",
+        });
+
+        var act = sut.Create;
+
+        act.Should().NotThrow();
     }
 }

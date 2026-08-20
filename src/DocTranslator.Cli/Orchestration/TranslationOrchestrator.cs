@@ -30,7 +30,9 @@ public sealed class TranslationOrchestrator(
     IGitHubService gitHubService,
     IPrSummaryBuilder prSummaryBuilder,
     IOutputPathResolver outputPathResolver,
-    IConsoleSummaryWriter consoleSummaryWriter)
+    IConsoleSummaryWriter consoleSummaryWriter,
+    IJobSummaryWriter jobSummaryWriter,
+    IGitHubActionsLog log)
 {
     public async Task<int> RunAsync(ActionOptions options, CancellationToken cancellationToken)
     {
@@ -55,6 +57,7 @@ public sealed class TranslationOrchestrator(
         var pullRequestUrl = await PublishAsync(options, summary, filesToCommit, cancellationToken);
 
         consoleSummaryWriter.Write(summary, filesToCommit.Count, pullRequestUrl, options.DryRun);
+        await jobSummaryWriter.WriteAsync(summary, filesToCommit.Count, pullRequestUrl, options.DryRun, cancellationToken);
         await WriteGitHubOutputsAsync(pullRequestUrl, filesToCommit.Count, summary.DriftWarnings.Count, cancellationToken);
 
         return options.FailOnStaleTranslations && summary.DriftWarnings.Count > 0 ? 1 : 0;
@@ -73,6 +76,8 @@ public sealed class TranslationOrchestrator(
 
         foreach (var changedFile in changedFiles)
         {
+            using var group = log.BeginGroup($"Translate {changedFile.Path}");
+
             var absoluteSourcePath = Path.Combine(options.RepositoryPath, changedFile.Path);
             var markdown = await File.ReadAllTextAsync(absoluteSourcePath, cancellationToken);
             var context = parserService.ParseAndExtractChunks(changedFile.Path, markdown);
@@ -90,6 +95,7 @@ public sealed class TranslationOrchestrator(
                     foreach (var warning in warnings)
                     {
                         summary.GlossaryWarnings.Add($"{changedFile.Path} [{targetLanguage}]: {warning}");
+                        log.LogWarning($"[{targetLanguage}] {warning}", changedFile.Path);
                     }
                 }
 
@@ -104,6 +110,7 @@ public sealed class TranslationOrchestrator(
                 catch (ReconstructionParseException ex)
                 {
                     summary.Errors.Add($"{changedFile.Path} [{targetLanguage}]: {ex.Message}");
+                    log.LogError($"[{targetLanguage}] Skipped - malformed translation response: {ex.Message}", changedFile.Path);
                     continue;
                 }
 

@@ -7,6 +7,7 @@ using DocTranslator.Core.Glossary;
 using DocTranslator.Core.Parsing;
 using DocTranslator.Core.Provenance;
 using DocTranslator.Core.Reconstruction;
+using DocTranslator.Core.Telemetry;
 using DocTranslator.GitHub.Cache;
 using DocTranslator.GitHub.Diff;
 using DocTranslator.GitHub.Operations;
@@ -25,6 +26,7 @@ var glossaryPathOption = new Option<string?>("--glossary-path", "Path to the .do
 var baseBranchOption = new Option<string?>("--base-branch", "Base branch to diff against and to open the pull request into.");
 var dryRunOption = new Option<bool?>("--dry-run", "Skip git push/PR - write translated files locally only.");
 var useFakeLlmOption = new Option<bool?>("--use-fake-llm", "Use a trivial marker-wrapping fake translator instead of a real LLM provider.");
+var maxParallelRequestsOption = new Option<int?>("--max-parallel-requests", "Bounds how many LLM batch requests run concurrently per file/language (default 4).");
 var verboseOption = new Option<bool>("--verbose", () => false, "Verbose console output.");
 
 var root = new RootCommand("doc-translator-action: AST-aware Markdown translation via Markdig + LLM.");
@@ -36,6 +38,7 @@ root.AddOption(glossaryPathOption);
 root.AddOption(baseBranchOption);
 root.AddOption(dryRunOption);
 root.AddOption(useFakeLlmOption);
+root.AddOption(maxParallelRequestsOption);
 root.AddOption(verboseOption);
 
 root.SetHandler(async context =>
@@ -50,6 +53,7 @@ root.SetHandler(async context =>
         BaseBranch = context.ParseResult.GetValueForOption(baseBranchOption),
         DryRun = context.ParseResult.GetValueForOption(dryRunOption),
         UseFakeLlm = context.ParseResult.GetValueForOption(useFakeLlmOption),
+        MaxParallelRequests = context.ParseResult.GetValueForOption(maxParallelRequestsOption),
         Verbose = context.ParseResult.GetValueForOption(verboseOption),
     };
 
@@ -82,6 +86,7 @@ static async Task<int> RunAsync(ActionOptionsCliOverrides cliOverrides, Cancella
             services.AddSingleton<IGlossaryService, GlossaryService>();
             services.AddSingleton<IAstReconstructor, AstReconstructor>();
             services.AddSingleton<IDriftDetector, DriftDetector>();
+            services.AddSingleton<ITokenUsageTracker, TokenUsageTracker>();
 
             services.AddSingleton<IEnvironmentProvider, EnvironmentProvider>();
             services.AddSingleton<IChatClientFactory, ChatClientFactory>();
@@ -99,6 +104,8 @@ static async Task<int> RunAsync(ActionOptionsCliOverrides cliOverrides, Cancella
 
             services.AddSingleton<IOutputPathResolver, OutputPathResolver>();
             services.AddSingleton<IConsoleSummaryWriter, ConsoleSummaryWriter>();
+            services.AddSingleton<IGitHubActionsLog, GitHubActionsLog>();
+            services.AddSingleton<IJobSummaryWriter, JobSummaryWriter>();
             services.AddSingleton<TranslationOrchestrator>();
         })
         .Build();

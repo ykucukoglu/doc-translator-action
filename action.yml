@@ -61,6 +61,10 @@ inputs:
     description: 'When true, the action exits non-zero if any existing translated file is out of sync with its current source (see the drift-marker feature).'
     required: false
     default: 'false'
+  max-parallel-requests:
+    description: 'Bounds how many LLM batch requests run concurrently per file/language.'
+    required: false
+    default: '4'
 
 outputs:
   pr-url:

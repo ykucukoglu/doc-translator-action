@@ -1,4 +1,5 @@
 using DocTranslator.Core.Models;
+using DocTranslator.Core.Telemetry;
 
 namespace DocTranslator.Cli.Logging;
 
@@ -8,7 +9,7 @@ public interface IConsoleSummaryWriter
 }
 
 /// <summary>Human-readable summary printed at the end of every run, dry-run or not.</summary>
-public sealed class ConsoleSummaryWriter : IConsoleSummaryWriter
+public sealed class ConsoleSummaryWriter(ITokenUsageTracker tokenUsageTracker) : IConsoleSummaryWriter
 {
     public void Write(TranslationRunSummary summary, int translatedFilesCount, string? pullRequestUrl, bool dryRun)
     {
@@ -19,6 +20,12 @@ public sealed class ConsoleSummaryWriter : IConsoleSummaryWriter
         foreach (var language in summary.Languages)
         {
             Console.WriteLine($"  [{language.TargetLanguage}] {language.ChunksTranslated} chunk(s) translated, {language.ChunksFromCache} from cache");
+        }
+
+        if (tokenUsageTracker.TotalTokens > 0)
+        {
+            Console.WriteLine(
+                $"Token usage: {tokenUsageTracker.TotalPromptTokens} prompt + {tokenUsageTracker.TotalCompletionTokens} completion = {tokenUsageTracker.TotalTokens} total");
         }
 
         foreach (var warning in summary.GlossaryWarnings)
