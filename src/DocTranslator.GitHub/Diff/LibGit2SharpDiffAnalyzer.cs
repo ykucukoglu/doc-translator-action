@@ -17,6 +17,9 @@ public interface IGitDiffAnalyzer
     /// events, callers should pass the PR's base branch (from GITHUB_BASE_REF).
     /// </param>
     IReadOnlyList<ChangedFile> GetChangedFiles(string repositoryPath, string? baseRef, string includeGlob);
+
+    /// <summary>The short (7-char) SHA of HEAD, used for deterministic branch naming (<c>doc-translator/{shortSha}</c>).</summary>
+    string GetHeadShortSha(string repositoryPath);
 }
 
 public sealed class LibGit2SharpDiffAnalyzer : IGitDiffAnalyzer
@@ -58,6 +61,14 @@ public sealed class LibGit2SharpDiffAnalyzer : IGitDiffAnalyzer
         }
 
         return results;
+    }
+
+    public string GetHeadShortSha(string repositoryPath)
+    {
+        using var repo = new Repository(repositoryPath);
+        var head = repo.Head.Tip
+            ?? throw new InvalidOperationException($"Repository at '{repositoryPath}' has no commits at HEAD.");
+        return head.Sha[..7];
     }
 
     private static Commit? ResolveBaseCommit(Repository repo, string? baseRef, Commit head)
