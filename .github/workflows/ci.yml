@@ -32,6 +32,13 @@ jobs:
       # self-translation-cascade bugs by hand during dogfooding; running it on every push catches
       # that class of orchestration-wiring regression before a real workflow run has to.
       - name: Smoke test (fake LLM, dry run)
+        # On the pull_request trigger, the runner sets GITHUB_BASE_REF=main for *this* job's own
+        # checkout - which the Cli would otherwise inherit and try to resolve against the freshly
+        # `git init`'d scratch repo below (which has no "main" ref at all). Unset it so the smoke
+        # test's own base-ref resolution behaves like a real local/push run, unaffected by the CI
+        # job's own trigger event.
+        env:
+          GITHUB_BASE_REF: ""
         run: |
           set -e
           scratch=$(mktemp -d)
