@@ -15,6 +15,12 @@ on:
   pull_request:
     branches: [main]
     paths: ['docs/**']
+  workflow_dispatch:
+    inputs:
+      pr_mode:
+        description: 'Open a real pull request with the translated docs (vs. a dry validation run)'
+        type: boolean
+        default: false
 
 jobs:
   translate:
@@ -35,4 +41,4 @@ jobs:
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
           target-languages: tr,de
           source-path: docs
-          pr-mode: ${{ github.event_name == 'push' && 'true' || 'false' }}
+          pr-mode: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.pr_mode)) && 'true' || 'false' }}
