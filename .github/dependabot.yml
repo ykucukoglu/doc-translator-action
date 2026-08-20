@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Covers every .csproj under the repo root, including the beta Anthropic SDK - a breaking
+  # change there should show up as a reviewable PR, not a silent runtime failure.
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      microsoft-extensions:
+        patterns:
+          - "Microsoft.Extensions.*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
