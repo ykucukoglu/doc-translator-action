@@ -29,6 +29,7 @@ Everything below is pending the first tagged release (`v1.0.0`).
 - `source-language` input: explicitly tells the LLM the source language instead of leaving it unstated (default `auto`, unchanged behavior).
 - `max-batch-tokens` input: exposes the per-batch token budget (previously hardcoded at 4000).
 - `verbose` input: prints the full exception to stderr on failure (previously CLI-flag-only).
+- Azure OpenAI as a fourth LLM provider (`azure-openai-api-key`, `azure-openai-endpoint`, `azure-openai-deployment`), for enterprise setups already using an Azure OpenAI resource.
 
 ### Fixed
 

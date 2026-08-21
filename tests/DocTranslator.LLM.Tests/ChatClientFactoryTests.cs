@@ -35,4 +35,12 @@ public class ChatClientFactoryTests
 
         client.Should().NotBeNull();
     }
+
+    [Fact]
+    public void CreateAzureOpenAi_ReturnsNonNullChatClient()
+    {
+        var client = _sut.CreateAzureOpenAi("dummy-key", "https://my-resource.openai.azure.com/", "my-deployment");
+
+        client.Should().NotBeNull();
+    }
 }

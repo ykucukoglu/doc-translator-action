@@ -1,5 +1,5 @@
 name: 'Doc Translator'
-description: 'AST-aware Markdown translation via Markdig + LLM (Gemini, OpenAI, or Claude), opens a pull request with the results.'
+description: 'AST-aware Markdown translation via Markdig + LLM (Gemini, OpenAI, Claude, or Azure OpenAI), opens a pull request with the results.'
 author: 'doc-translator-action'
 
 inputs:
@@ -13,10 +13,19 @@ inputs:
     description: 'OpenAI API key. Set this, gemini-api-key, or anthropic-api-key.'
     required: false
   anthropic-api-key:
-    description: 'Anthropic (Claude) API key. Set this, gemini-api-key, or openai-api-key.'
+    description: 'Anthropic (Claude) API key. Set this, gemini-api-key, openai-api-key, or azure-openai-api-key.'
+    required: false
+  azure-openai-api-key:
+    description: 'Azure OpenAI API key. Set this (along with azure-openai-endpoint and azure-openai-deployment), or one of gemini-api-key, openai-api-key, anthropic-api-key.'
+    required: false
+  azure-openai-endpoint:
+    description: 'Azure OpenAI resource endpoint, e.g. https://your-resource.openai.azure.com/. Required when using azure-openai-api-key.'
+    required: false
+  azure-openai-deployment:
+    description: 'Azure OpenAI deployment name (the name chosen when the model was deployed in your Azure OpenAI resource, not necessarily the underlying model id). Required when using azure-openai-api-key.'
     required: false
   llm-provider:
-    description: "Which LLM provider to use: auto, gemini, openai, claude, or fake. 'auto' requires exactly one of the *-api-key inputs to be set; if more than one is set, llm-provider must be set explicitly."
+    description: "Which LLM provider to use: auto, gemini, openai, claude, azure-openai, or fake. 'auto' requires exactly one of the *-api-key inputs to be set; if more than one is set, llm-provider must be set explicitly."
     required: false
     default: 'auto'
   gemini-model:

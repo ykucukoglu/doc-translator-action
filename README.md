@@ -16,14 +16,14 @@ Markdown is parsed into a real AST via [Markdig](https://github.com/xoofx/markdi
 - 💰 **Zero-cost content-hash cache** — each paragraph's translation is cached by a hash of its own content, not git line numbers, so unrelated edits elsewhere in a file never trigger a re-translation.
 - 🩹 **Self-healing reconstruction** — a translation that drops a required marker is repaired (up to 2 retries) before falling back to leaving just that paragraph untranslated; one bad LLM response never corrupts a document.
 - 📊 **Job Summary** — a Markdown execution report (chunk/cache counts, token usage, warnings) on every run's GitHub Actions "Summary" tab.
-- 🔌 **Three LLM providers** — Gemini, OpenAI, and Claude, all behind `Microsoft.Extensions.AI`'s `IChatClient`, via each vendor's official SDK.
+- 🔌 **Four LLM providers** — Gemini, OpenAI, Claude, and Azure OpenAI, all behind `Microsoft.Extensions.AI`'s `IChatClient`, via each vendor's official SDK.
 - 🔁 **Resilient & concurrent** — Polly v8 exponential backoff on transient HTTP failures; batch requests run concurrently, bounded by `max-parallel-requests`.
 - 🕵️ **Drift detection** — flags translated files whose source has changed since they were last translated.
 - 🚫 **`.doc-ignore`** — exclude files like `CHANGELOG.md` or `DRAFT_*.md` from the pipeline entirely.
 
 ## Quick start
 
-Set exactly one of `gemini-api-key`, `openai-api-key`, `anthropic-api-key` (or set `llm-provider` explicitly if more than one is configured).
+Set exactly one of `gemini-api-key`, `openai-api-key`, `anthropic-api-key`, `azure-openai-api-key` (or set `llm-provider` explicitly if more than one is configured). `azure-openai-api-key` also requires `azure-openai-endpoint` and `azure-openai-deployment`.
 
 ### Standard Markdown (default layout)
 
@@ -128,7 +128,10 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `gemini-api-key` | — | Google Gemini API key. Set this, `openai-api-key`, or `anthropic-api-key`. |
 | `openai-api-key` | — | OpenAI API key. |
 | `anthropic-api-key` | — | Anthropic (Claude) API key. |
-| `llm-provider` | `auto` | `auto`, `gemini`, `openai`, `claude`, or `fake`. Must be set explicitly if more than one `*-api-key` is configured. |
+| `azure-openai-api-key` | — | Azure OpenAI API key. Requires `azure-openai-endpoint` and `azure-openai-deployment` too. |
+| `azure-openai-endpoint` | — | Azure OpenAI resource endpoint, e.g. `https://your-resource.openai.azure.com/`. |
+| `azure-openai-deployment` | — | Azure OpenAI deployment name (chosen when the model was deployed, not necessarily the model id). |
+| `llm-provider` | `auto` | `auto`, `gemini`, `openai`, `claude`, `azure-openai`, or `fake`. Must be set explicitly if more than one `*-api-key` is configured. |
 | `gemini-model` | `gemini-2.5-flash` | Gemini model id. |
 | `openai-model` | `gpt-5-mini` | OpenAI model id. |
 | `claude-model` | `claude-sonnet-5` | Claude model id. |

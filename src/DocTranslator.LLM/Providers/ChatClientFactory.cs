@@ -1,3 +1,5 @@
+using System.ClientModel;
+using Azure.AI.OpenAI;
 using Microsoft.Extensions.AI;
 
 namespace DocTranslator.LLM.Providers;
@@ -9,6 +11,8 @@ public interface IChatClientFactory
     IChatClient CreateOpenAi(string apiKey, string model);
 
     IChatClient CreateClaude(string apiKey, string model);
+
+    IChatClient CreateAzureOpenAi(string apiKey, string endpoint, string deploymentName);
 }
 
 /// <summary>
@@ -26,4 +30,11 @@ public sealed class ChatClientFactory : IChatClientFactory
 
     public IChatClient CreateClaude(string apiKey, string model) =>
         new Anthropic.AnthropicClient(new Anthropic.Core.ClientOptions { ApiKey = apiKey }).AsIChatClient(model);
+
+    // deploymentName is the name chosen when the model was deployed in the Azure OpenAI resource,
+    // not necessarily the same string as the underlying model id (e.g. "gpt-4o").
+    public IChatClient CreateAzureOpenAi(string apiKey, string endpoint, string deploymentName) =>
+        new AzureOpenAIClient(new Uri(endpoint), new ApiKeyCredential(apiKey))
+            .GetChatClient(deploymentName)
+            .AsIChatClient();
 }

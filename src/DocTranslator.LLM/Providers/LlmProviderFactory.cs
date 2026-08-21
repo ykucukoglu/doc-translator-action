@@ -47,6 +47,7 @@ public sealed class LlmProviderFactory(
         var geminiKey = environment.GetEnvironmentVariable("GEMINI_API_KEY");
         var openAiKey = environment.GetEnvironmentVariable("OPENAI_API_KEY");
         var claudeKey = environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+        var azureOpenAiKey = environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
 
         var configuredProviders = new List<string>();
         if (!string.IsNullOrWhiteSpace(geminiKey))
@@ -64,6 +65,11 @@ public sealed class LlmProviderFactory(
             configuredProviders.Add("claude");
         }
 
+        if (!string.IsNullOrWhiteSpace(azureOpenAiKey))
+        {
+            configuredProviders.Add("azure-openai");
+        }
+
         var resolvedProvider = ResolveProvider(explicitProvider, configuredProviders);
 
         return resolvedProvider switch
@@ -77,8 +83,13 @@ public sealed class LlmProviderFactory(
             "claude" => BuildService("claude", chatClientFactory.CreateClaude(
                 RequireKey(claudeKey, "ANTHROPIC_API_KEY"), ModelOrDefault("INPUT_CLAUDE_MODEL", DefaultClaudeModel))),
 
+            "azure-openai" => BuildService("azure-openai", chatClientFactory.CreateAzureOpenAi(
+                RequireKey(azureOpenAiKey, "AZURE_OPENAI_API_KEY"),
+                RequireKey(environment.GetEnvironmentVariable("INPUT_AZURE_OPENAI_ENDPOINT"), "azure-openai-endpoint"),
+                RequireKey(environment.GetEnvironmentVariable("INPUT_AZURE_OPENAI_DEPLOYMENT"), "azure-openai-deployment"))),
+
             _ => throw new LlmTranslationException(
-                $"Unknown 'llm-provider' value '{resolvedProvider}'. Expected one of: auto, gemini, openai, claude, fake."),
+                $"Unknown 'llm-provider' value '{resolvedProvider}'. Expected one of: auto, gemini, openai, claude, azure-openai, fake."),
         };
     }
 

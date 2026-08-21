@@ -11,6 +11,12 @@ public sealed class ActionOptions
 
     public string? AnthropicApiKey { get; init; }
 
+    public string? AzureOpenAiApiKey { get; init; }
+
+    public string? AzureOpenAiEndpoint { get; init; }
+
+    public string? AzureOpenAiDeployment { get; init; }
+
     public string LlmProvider { get; init; } = "auto";
 
     public string? GeminiModel { get; init; }

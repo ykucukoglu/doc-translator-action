@@ -24,6 +24,7 @@ public class LlmProviderFactoryTests
         _chatClientFactory.Setup(f => f.CreateGemini(It.IsAny<string>(), It.IsAny<string>())).Returns(Mock.Of<IChatClient>());
         _chatClientFactory.Setup(f => f.CreateOpenAi(It.IsAny<string>(), It.IsAny<string>())).Returns(Mock.Of<IChatClient>());
         _chatClientFactory.Setup(f => f.CreateClaude(It.IsAny<string>(), It.IsAny<string>())).Returns(Mock.Of<IChatClient>());
+        _chatClientFactory.Setup(f => f.CreateAzureOpenAi(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Mock.Of<IChatClient>());
     }
 
     private LlmProviderFactory BuildSut(IReadOnlyDictionary<string, string> env) =>
@@ -58,6 +59,36 @@ public class LlmProviderFactoryTests
         var service = sut.Create();
 
         service.ProviderName.Should().Be("claude");
+    }
+
+    [Fact]
+    public void Create_AzureOpenAiKeyEndpointAndDeploymentSet_ResolvesToAzureOpenAi()
+    {
+        var sut = BuildSut(new Dictionary<string, string>
+        {
+            ["AZURE_OPENAI_API_KEY"] = "az-key",
+            ["INPUT_AZURE_OPENAI_ENDPOINT"] = "https://my-resource.openai.azure.com/",
+            ["INPUT_AZURE_OPENAI_DEPLOYMENT"] = "my-deployment",
+        });
+
+        var service = sut.Create();
+
+        service.ProviderName.Should().Be("azure-openai");
+        _chatClientFactory.Verify(f => f.CreateAzureOpenAi("az-key", "https://my-resource.openai.azure.com/", "my-deployment"), Times.Once);
+    }
+
+    [Fact]
+    public void Create_AzureOpenAiKeySetButEndpointMissing_Throws()
+    {
+        var sut = BuildSut(new Dictionary<string, string>
+        {
+            ["AZURE_OPENAI_API_KEY"] = "az-key",
+            ["INPUT_AZURE_OPENAI_DEPLOYMENT"] = "my-deployment",
+        });
+
+        var act = sut.Create;
+
+        act.Should().Throw<LlmTranslationException>().WithMessage("*azure-openai-endpoint*");
     }
 
     [Fact]

@@ -91,6 +91,9 @@ public static class ActionOptionsBinder
             GeminiApiKey = ReadInput("gemini-api-key"),
             OpenAiApiKey = ReadInput("openai-api-key"),
             AnthropicApiKey = ReadInput("anthropic-api-key"),
+            AzureOpenAiApiKey = ReadInput("azure-openai-api-key"),
+            AzureOpenAiEndpoint = ReadInput("azure-openai-endpoint"),
+            AzureOpenAiDeployment = ReadInput("azure-openai-deployment"),
             LlmProvider = llmProvider,
             GeminiModel = ReadInput("gemini-model") ?? config?.GeminiModel,
             OpenAiModel = ReadInput("openai-model") ?? config?.OpenAiModel,
@@ -126,6 +129,9 @@ public static class ActionOptionsBinder
         SetIfPresent("GEMINI_API_KEY", options.GeminiApiKey);
         SetIfPresent("OPENAI_API_KEY", options.OpenAiApiKey);
         SetIfPresent("ANTHROPIC_API_KEY", options.AnthropicApiKey);
+        SetIfPresent("AZURE_OPENAI_API_KEY", options.AzureOpenAiApiKey);
+        SetIfPresent("INPUT_AZURE_OPENAI_ENDPOINT", options.AzureOpenAiEndpoint);
+        SetIfPresent("INPUT_AZURE_OPENAI_DEPLOYMENT", options.AzureOpenAiDeployment);
         SetIfPresent("INPUT_LLM_PROVIDER", options.LlmProvider);
         SetIfPresent("INPUT_GEMINI_MODEL", options.GeminiModel);
         SetIfPresent("INPUT_OPENAI_MODEL", options.OpenAiModel);
