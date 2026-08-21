@@ -12,6 +12,7 @@ public interface IJobSummaryWriter
         int translatedFilesCount,
         string? pullRequestUrl,
         bool dryRun,
+        TimeSpan elapsed,
         CancellationToken cancellationToken);
 
     Task WriteCostEstimateAsync(CostEstimate estimate, CancellationToken cancellationToken);
@@ -48,6 +49,7 @@ public sealed class JobSummaryWriter(ITokenUsageTracker tokenUsageTracker) : IJo
         int translatedFilesCount,
         string? pullRequestUrl,
         bool dryRun,
+        TimeSpan elapsed,
         CancellationToken cancellationToken)
     {
         var summaryFile = GetSummaryFileOrNull();
@@ -57,19 +59,46 @@ public sealed class JobSummaryWriter(ITokenUsageTracker tokenUsageTracker) : IJo
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine("## doc-translator-action").AppendLine();
-        sb.Append("**Files translated:** ").Append(translatedFilesCount.ToString(CultureInfo.InvariantCulture)).AppendLine("  ");
-        sb.Append("**Mode:** ").AppendLine(dryRun ? "dry run" : "push + pull request");
+        sb.AppendLine("## 🚀 doc-translator-action summary").AppendLine();
 
+        sb.AppendLine("| Metric | Value |");
+        sb.AppendLine("| --- | --- |");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"| Files translated | {translatedFilesCount} |");
+        if (summary.Languages.Count > 0)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"| Languages | {string.Join(", ", summary.Languages.Select(l => l.TargetLanguage))} |");
+        }
+
+        if (summary.TotalChunkPairs > 0)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture,
+                $"| Chunk/language pairs | {summary.TotalChunkPairs} ({summary.CacheHitRatePercent:F0}% from cache) |");
+        }
+
+        if (tokenUsageTracker.TotalTokens > 0)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture,
+                $"| Token usage | {tokenUsageTracker.TotalTokens} ({tokenUsageTracker.TotalPromptTokens} prompt / {tokenUsageTracker.TotalCompletionTokens} completion) |");
+        }
+
+        var preserved = summary.DescribePreservedContent();
+        if (preserved is not null)
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"| Preserved untouched | {preserved} |");
+        }
+
+        sb.AppendLine(CultureInfo.InvariantCulture, $"| Execution time | {ConsoleSummaryWriter.FormatElapsed(elapsed)} |");
+        sb.AppendLine(CultureInfo.InvariantCulture, $"| Mode | {(dryRun ? "dry run" : "push + pull request")} |");
         if (!string.IsNullOrEmpty(pullRequestUrl))
         {
-            sb.Append("**Pull request:** ").AppendLine(pullRequestUrl);
+            sb.AppendLine(CultureInfo.InvariantCulture, $"| Pull request | {pullRequestUrl} |");
         }
 
         sb.AppendLine();
 
         if (summary.Languages.Count > 0)
         {
+            sb.AppendLine("### Per-language breakdown").AppendLine();
             sb.AppendLine("| Language | Chunks translated | From cache |");
             sb.AppendLine("| --- | --- | --- |");
             foreach (var language in summary.Languages)
@@ -79,14 +108,6 @@ public sealed class JobSummaryWriter(ITokenUsageTracker tokenUsageTracker) : IJo
 
             sb.AppendLine();
         }
-
-        sb.AppendLine("### Token usage").AppendLine();
-        sb.AppendLine("| Prompt | Completion | Total |");
-        sb.AppendLine("| --- | --- | --- |");
-        sb.AppendLine(
-            CultureInfo.InvariantCulture,
-            $"| {tokenUsageTracker.TotalPromptTokens} | {tokenUsageTracker.TotalCompletionTokens} | {tokenUsageTracker.TotalTokens} |");
-        sb.AppendLine();
 
         AppendListSection(sb, "Stale translations detected", summary.DriftWarnings);
         AppendListSection(sb, "Glossary warnings", summary.GlossaryWarnings);

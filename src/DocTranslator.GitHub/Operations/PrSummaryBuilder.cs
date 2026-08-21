@@ -52,33 +52,11 @@ public sealed class PrSummaryBuilder : IPrSummaryBuilder
     /// <summary>Reports what was structurally protected this run - the positive counterpart to the warning sections below, so a reviewer sees confirmation, not just problems.</summary>
     private static void AppendPreservedSection(StringBuilder sb, TranslationRunSummary summary)
     {
-        var parts = new List<string>();
-        if (summary.PreservedCodeBlocks > 0)
+        var description = summary.DescribePreservedContent();
+        if (description is not null)
         {
-            parts.Add($"{summary.PreservedCodeBlocks} code block{(summary.PreservedCodeBlocks == 1 ? "" : "s")}");
+            sb.Append("**Preserved untouched:** ").Append(description).AppendLine(".").AppendLine();
         }
-
-        if (summary.PreservedInlineCode > 0)
-        {
-            parts.Add($"{summary.PreservedInlineCode} inline code span{(summary.PreservedInlineCode == 1 ? "" : "s")}");
-        }
-
-        if (summary.PreservedLinks > 0)
-        {
-            parts.Add($"{summary.PreservedLinks} link{(summary.PreservedLinks == 1 ? "" : "s")}");
-        }
-
-        if (summary.PreservedGlossaryTerms.Count > 0)
-        {
-            parts.Add($"{summary.PreservedGlossaryTerms.Count} glossary term{(summary.PreservedGlossaryTerms.Count == 1 ? "" : "s")} ({string.Join(", ", summary.PreservedGlossaryTerms.OrderBy(t => t, StringComparer.OrdinalIgnoreCase))})");
-        }
-
-        if (parts.Count == 0)
-        {
-            return;
-        }
-
-        sb.Append("**Preserved untouched:** ").Append(string.Join(", ", parts)).AppendLine(".").AppendLine();
     }
 
     private static void AppendPreviews(StringBuilder sb, List<TranslationPreview> previews)

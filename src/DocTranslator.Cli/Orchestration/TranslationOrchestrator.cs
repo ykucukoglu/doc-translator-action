@@ -43,6 +43,7 @@ public sealed class TranslationOrchestrator(
 
     public async Task<int> RunAsync(ActionOptions options, CancellationToken cancellationToken)
     {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var glossary = glossaryService.Load(Path.Combine(options.RepositoryPath, options.GlossaryPath));
         var docIgnoreFilter = docIgnoreService.Load(Path.Combine(options.RepositoryPath, ".doc-ignore"));
         var fullGlob = CombineGlob(options.SourcePath, options.IncludeGlob);
@@ -85,8 +86,8 @@ public sealed class TranslationOrchestrator(
         var prOutcome = await PublishAsync(options, summary, filesToCommit, cancellationToken);
         var pullRequestUrl = prOutcome?.Url;
 
-        consoleSummaryWriter.Write(summary, filesToCommit.Count, pullRequestUrl, options.DryRun);
-        await jobSummaryWriter.WriteAsync(summary, filesToCommit.Count, pullRequestUrl, options.DryRun, cancellationToken);
+        consoleSummaryWriter.Write(summary, filesToCommit.Count, pullRequestUrl, options.DryRun, stopwatch.Elapsed);
+        await jobSummaryWriter.WriteAsync(summary, filesToCommit.Count, pullRequestUrl, options.DryRun, stopwatch.Elapsed, cancellationToken);
         await WriteGitHubOutputsAsync(prOutcome, filesToCommit.Count, summary.DriftWarnings.Count, cancellationToken);
 
         return options.FailOnStaleTranslations && summary.DriftWarnings.Count > 0 ? 1 : 0;

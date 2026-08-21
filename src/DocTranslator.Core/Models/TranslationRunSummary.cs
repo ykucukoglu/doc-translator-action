@@ -45,6 +45,52 @@ public sealed class TranslationRunSummary
 
     /// <summary><c>dont_translate</c> glossary terms confirmed present, verbatim, in at least one translation this run.</summary>
     public HashSet<string> PreservedGlossaryTerms { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Human-readable rundown of everything <see cref="PreservedCodeBlocks"/>/<see cref="PreservedInlineCode"/>/
+    /// <see cref="PreservedLinks"/>/<see cref="PreservedGlossaryTerms"/> tracked this run, e.g.
+    /// "14 code blocks, 3 inline code spans, 7 links, 5 glossary terms (API, Docusaurus, GitHub)" -
+    /// shared by the console/Job Summary/PR comment writers so the wording never drifts between
+    /// them. Null when nothing was preserved (nothing to report).
+    /// </summary>
+    public string? DescribePreservedContent()
+    {
+        var parts = new List<string>();
+        if (PreservedCodeBlocks > 0)
+        {
+            parts.Add($"{PreservedCodeBlocks} code block{(PreservedCodeBlocks == 1 ? "" : "s")}");
+        }
+
+        if (PreservedInlineCode > 0)
+        {
+            parts.Add($"{PreservedInlineCode} inline code span{(PreservedInlineCode == 1 ? "" : "s")}");
+        }
+
+        if (PreservedLinks > 0)
+        {
+            parts.Add($"{PreservedLinks} link{(PreservedLinks == 1 ? "" : "s")}");
+        }
+
+        if (PreservedGlossaryTerms.Count > 0)
+        {
+            parts.Add($"{PreservedGlossaryTerms.Count} glossary term{(PreservedGlossaryTerms.Count == 1 ? "" : "s")} ({string.Join(", ", PreservedGlossaryTerms.OrderBy(t => t, StringComparer.OrdinalIgnoreCase))})");
+        }
+
+        return parts.Count == 0 ? null : string.Join(", ", parts);
+    }
+
+    /// <summary>Total chunk/language pairs across every language this run, translated and cached alike - the denominator for a cache-hit rate.</summary>
+    public int TotalChunkPairs => Languages.Sum(l => l.ChunksTranslated + l.ChunksFromCache);
+
+    /// <summary>Fraction (0-100) of <see cref="TotalChunkPairs"/> served from the cache rather than an LLM call. Null when there were no pairs at all (nothing translated).</summary>
+    public double? CacheHitRatePercent
+    {
+        get
+        {
+            var total = TotalChunkPairs;
+            return total == 0 ? null : Languages.Sum(l => l.ChunksFromCache) * 100.0 / total;
+        }
+    }
 }
 
 public sealed record LanguageSummary(string TargetLanguage, int ChunksTranslated, int ChunksFromCache);

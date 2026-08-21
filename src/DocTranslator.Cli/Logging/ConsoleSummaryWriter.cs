@@ -5,7 +5,7 @@ namespace DocTranslator.Cli.Logging;
 
 public interface IConsoleSummaryWriter
 {
-    void Write(TranslationRunSummary summary, int translatedFilesCount, string? pullRequestUrl, bool dryRun);
+    void Write(TranslationRunSummary summary, int translatedFilesCount, string? pullRequestUrl, bool dryRun, TimeSpan elapsed);
 
     void WriteCostEstimate(CostEstimate estimate);
 }
@@ -22,7 +22,7 @@ public sealed class ConsoleSummaryWriter(ITokenUsageTracker tokenUsageTracker) :
         Console.WriteLine(CostEstimate.Note);
     }
 
-    public void Write(TranslationRunSummary summary, int translatedFilesCount, string? pullRequestUrl, bool dryRun)
+    public void Write(TranslationRunSummary summary, int translatedFilesCount, string? pullRequestUrl, bool dryRun, TimeSpan elapsed)
     {
         Console.WriteLine();
         Console.WriteLine("=== doc-translator-action summary ===");
@@ -38,6 +38,14 @@ public sealed class ConsoleSummaryWriter(ITokenUsageTracker tokenUsageTracker) :
             Console.WriteLine(
                 $"Token usage: {tokenUsageTracker.TotalPromptTokens} prompt + {tokenUsageTracker.TotalCompletionTokens} completion = {tokenUsageTracker.TotalTokens} total");
         }
+
+        var preserved = summary.DescribePreservedContent();
+        if (preserved is not null)
+        {
+            Console.WriteLine($"Preserved untouched: {preserved}");
+        }
+
+        Console.WriteLine($"Execution time: {FormatElapsed(elapsed)}");
 
         foreach (var warning in summary.GlossaryWarnings)
         {
@@ -73,4 +81,9 @@ public sealed class ConsoleSummaryWriter(ITokenUsageTracker tokenUsageTracker) :
             Console.WriteLine($"Pull request: {pullRequestUrl}");
         }
     }
+
+    internal static string FormatElapsed(TimeSpan elapsed) =>
+        elapsed.TotalMinutes >= 1
+            ? $"{(int)elapsed.TotalMinutes}m {elapsed.Seconds}s"
+            : $"{elapsed.TotalSeconds.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}s";
 }
