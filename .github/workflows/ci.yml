@@ -10,6 +10,11 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Least privilege: this job only builds and tests, it never needs to write anything back to
+    # the repo. Without an explicit permissions block, GITHUB_TOKEN falls back to whatever the
+    # repository's default token permissions are set to - which can be broader than this job needs.
+    permissions:
+      contents: read
     steps:
       # Pinned to a full commit SHA, not a mutable tag - a compromised maintainer account or a
       # force-pushed tag (both have happened to widely-used actions) would otherwise let attacker
