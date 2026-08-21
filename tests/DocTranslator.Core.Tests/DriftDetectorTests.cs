@@ -83,4 +83,32 @@ public class DriftDetectorTests : IDisposable
 
         parsed.Should().BeNull();
     }
+
+    [Fact]
+    public void TryParseHeader_HeaderPrecededByFrontmatter_StillFound()
+    {
+        // AstReconstructor always keeps frontmatter as the file's first bytes and writes the
+        // header just after it - the header search must skip past the frontmatter fence, not just
+        // look at line 1.
+        var provenance = new TranslationProvenance("abc123", "docs/guide.md", "fr", DateTimeOffset.UtcNow);
+        var content = "---\ntitle: Foo\n---\n\n" + provenance.ToHeaderComment() + "\n\n# Foo\n\nBody.\n";
+
+        var parsed = _sut.TryParseHeader(content);
+
+        parsed.Should().NotBeNull();
+        parsed!.SourceContentHash.Should().Be("abc123");
+    }
+
+    [Fact]
+    public void CheckDrift_HashMatchesWithFrontmatterPresent_IsNotStale()
+    {
+        File.WriteAllText(_tempFile, "# Hello\n\nSource content.\n");
+        var hash = _sut.HashFile(_tempFile);
+        var provenance = new TranslationProvenance(hash, _tempFile, "de", DateTimeOffset.UtcNow);
+        var translatedContent = "---\ntitle: Foo\n---\n\n" + provenance.ToHeaderComment() + "\n\n# Hallo\n\nÜbersetzter Inhalt.\n";
+
+        var result = _sut.CheckDrift(_tempFile, translatedContent);
+
+        result.IsStale.Should().BeFalse();
+    }
 }

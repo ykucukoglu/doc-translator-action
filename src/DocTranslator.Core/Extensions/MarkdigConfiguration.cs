@@ -13,5 +13,6 @@ public static class MarkdigConfiguration
         .UsePipeTables()
         .UseAutoLinks()
         .UseListExtras()
+        .UseYamlFrontMatter()
         .Build();
 }

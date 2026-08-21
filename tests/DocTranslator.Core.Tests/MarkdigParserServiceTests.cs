@@ -73,6 +73,31 @@ public class MarkdigParserServiceTests
     }
 
     [Fact]
+    public void ParseAndExtractChunks_YamlFrontmatter_NeverLeaksIntoChunksAndIsCapturedVerbatim()
+    {
+        var markdown = Fixtures.Load("frontmatter.md");
+
+        var context = _sut.ParseAndExtractChunks("frontmatter.md", markdown);
+
+        var allSourceText = string.Join('\n', context.Chunks.Select(c => c.SourceText));
+        allSourceText.Should().NotContain("sidebar_position");
+        allSourceText.Should().NotContain("guide to get started"); // description field
+
+        // Normalized against checkout line-ending translation (git may check this fixture out with
+        // CRLF on Windows) - what matters here is the content and the delimiters, not \r\n vs \n.
+        context.FrontmatterRawText?.Replace("\r\n", "\n").Should().Be(
+            "---\ntitle: Getting Started\ndescription: A guide to get started with the project\nsidebar_position: 1\n---");
+    }
+
+    [Fact]
+    public void ParseAndExtractChunks_NoFrontmatter_FrontmatterRawTextIsNull()
+    {
+        var context = _sut.ParseAndExtractChunks("a.md", "# Title\n\nBody text.\n");
+
+        context.FrontmatterRawText.Should().BeNull();
+    }
+
+    [Fact]
     public void ParseAndExtractChunks_SameSourceText_ProducesSameContentHash()
     {
         var context = _sut.ParseAndExtractChunks("a.md", "# Title\n\nSame text.\n");

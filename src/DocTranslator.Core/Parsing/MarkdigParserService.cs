@@ -4,6 +4,7 @@ using DocTranslator.Core.Extensions;
 using DocTranslator.Core.Models;
 using Markdig;
 using Markdig.Extensions.Tables;
+using Markdig.Extensions.Yaml;
 using Markdig.Syntax;
 
 namespace DocTranslator.Core.Parsing;
@@ -12,8 +13,8 @@ public interface IMarkdigParserService
 {
     /// <summary>
     /// Parses a Markdown document, walks its AST, and extracts one <see cref="TranslationChunk"/>
-    /// per translatable leaf block. Code blocks, fenced code blocks, raw HTML blocks, and
-    /// thematic breaks are skipped entirely and never touched.
+    /// per translatable leaf block. Code blocks, fenced code blocks, raw HTML blocks, thematic
+    /// breaks, and YAML frontmatter are skipped entirely and never touched.
     /// </summary>
     DocumentTranslationContext ParseAndExtractChunks(string sourceFilePath, string markdownText);
 }
@@ -26,6 +27,17 @@ public sealed class MarkdigParserService : IMarkdigParserService
     {
         var document = Markdown.Parse(markdownText, MarkdigConfiguration.Pipeline);
 
+        // Markdig's normalizing renderer doesn't round-trip a YamlFrontMatterBlock's `---`
+        // delimiters correctly (it's an HtmlBlock subclass, rendered as raw HTML lines with no
+        // fence re-added) - captured verbatim here and removed from the tree so RenderDocument
+        // never touches it; AstReconstructor splices this text back onto the output directly.
+        string? frontmatterRawText = null;
+        if (document.Count > 0 && document[0] is YamlFrontMatterBlock frontmatter)
+        {
+            frontmatterRawText = markdownText.Substring(frontmatter.Span.Start, frontmatter.Span.Length);
+            document.RemoveAt(0);
+        }
+
         var chunks = new List<TranslationChunk>();
         var reconstructionMap = new Dictionary<string, BlockReconstructionContext>();
 
@@ -37,6 +49,7 @@ public sealed class MarkdigParserService : IMarkdigParserService
             MarkdownDocument = document,
             Chunks = chunks,
             ReconstructionMap = reconstructionMap,
+            FrontmatterRawText = frontmatterRawText,
         };
     }
 
@@ -50,7 +63,9 @@ public sealed class MarkdigParserService : IMarkdigParserService
         {
             switch (block)
             {
-                // Never touched: code/HTML/structural blocks carry no natural language.
+                // Never touched: code/HTML/structural blocks carry no natural language. (A leading
+                // YamlFrontMatterBlock, if present, was already removed from the tree entirely -
+                // see ParseAndExtractChunks - so it's never seen here.)
                 case CodeBlock:
                 case HtmlBlock:
                 case ThematicBreakBlock:

@@ -6,9 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/9.0)
 
-A GitHub Action that translates Markdown documentation into multiple target languages on push or pull request, without breaking code snippets, inline variables, HTML, or technical URLs.
+A GitHub Action that translates Markdown documentation into multiple target languages on push or pull request, without breaking code snippets, inline variables, HTML, technical URLs, or YAML frontmatter.
 
-Markdown is parsed into a real AST via [Markdig](https://github.com/xoofx/markdig); only natural-language text nodes (paragraphs, headings, table cells, list items, blockquotes) are extracted and sent to an LLM, while code blocks, inline code, raw HTML, and link/image targets are never touched. Translated text is spliced back into the exact AST position it came from and re-rendered to Markdown. See [docs/architecture.md](docs/architecture.md) for the full pipeline.
+Markdown is parsed into a real AST via [Markdig](https://github.com/xoofx/markdig); only natural-language text nodes (paragraphs, headings, table cells, list items, blockquotes) are extracted and sent to an LLM, while code blocks, inline code, raw HTML, link/image targets, and a leading frontmatter block are never touched. Translated text is spliced back into the exact AST position it came from and re-rendered to Markdown. See [docs/architecture.md](docs/architecture.md) for the full pipeline.
 
 ## Core features
 

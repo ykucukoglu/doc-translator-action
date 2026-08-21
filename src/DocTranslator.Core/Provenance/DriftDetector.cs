@@ -31,19 +31,19 @@ public sealed class DriftDetector : IDriftDetector
 
     public TranslationProvenance? TryParseHeader(string translatedFileContent)
     {
-        var firstLine = ReadFirstLine(translatedFileContent);
-        if (firstLine is null || !firstLine.StartsWith(TranslationProvenance.HeaderPrefix, StringComparison.Ordinal))
+        var headerLine = FindHeaderLine(translatedFileContent);
+        if (headerLine is null || !headerLine.StartsWith(TranslationProvenance.HeaderPrefix, StringComparison.Ordinal))
         {
             return null;
         }
 
         const string suffix = "-->";
-        if (!firstLine.EndsWith(suffix, StringComparison.Ordinal))
+        if (!headerLine.EndsWith(suffix, StringComparison.Ordinal))
         {
             return null;
         }
 
-        var inner = firstLine[TranslationProvenance.HeaderPrefix.Length..^suffix.Length].Trim();
+        var inner = headerLine[TranslationProvenance.HeaderPrefix.Length..^suffix.Length].Trim();
         var fields = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var part in inner.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
@@ -90,10 +90,37 @@ public sealed class DriftDetector : IDriftDetector
             : new DriftCheckResult(IsStale: true, Reason: "Source file changed since this translation was generated.", provenance);
     }
 
-    private static string? ReadFirstLine(string content)
+    /// <summary>
+    /// The header line is the first non-blank line, except when the file opens with a YAML
+    /// frontmatter fence (a line that is exactly <c>---</c>) - AstReconstructor always keeps
+    /// frontmatter as the file's very first bytes (required for it to be recognized as metadata at
+    /// all) and writes the header just after it, so the search skips past the closing fence first.
+    /// String-based, not a real YAML parse - this only needs to recognize the exact shape this
+    /// codebase itself produces, not arbitrary frontmatter.
+    /// </summary>
+    private static string? FindHeaderLine(string content)
     {
-        var newlineIndex = content.IndexOf('\n');
-        var line = newlineIndex < 0 ? content : content[..newlineIndex];
-        return line.TrimEnd('\r');
+        var lines = content.Split('\n');
+        var start = 0;
+
+        if (lines.Length > 0 && lines[0].TrimEnd('\r') == "---")
+        {
+            var closingFenceIndex = Array.FindIndex(lines, 1, line => line.TrimEnd('\r') == "---");
+            if (closingFenceIndex >= 0)
+            {
+                start = closingFenceIndex + 1;
+            }
+        }
+
+        for (var i = start; i < lines.Length; i++)
+        {
+            var line = lines[i].TrimEnd('\r');
+            if (line.Length > 0)
+            {
+                return line;
+            }
+        }
+
+        return null;
     }
 }

@@ -62,6 +62,14 @@ public sealed class AstReconstructor : IAstReconstructor
             ? rendered
             : provenance.ToHeaderComment() + Environment.NewLine + Environment.NewLine + rendered;
 
+        // Frontmatter must stay the very first bytes of the file for the target site generator to
+        // recognize it as metadata at all - the provenance header (and everything else) goes after
+        // it, never before.
+        if (context.FrontmatterRawText is not null)
+        {
+            markdown = context.FrontmatterRawText + Environment.NewLine + Environment.NewLine + markdown;
+        }
+
         return new ReconstructionOutcome(markdown, repairedIds, unrecoverableIds);
     }
 

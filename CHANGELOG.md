@@ -37,6 +37,7 @@ Everything below is pending the first tagged release (`v1.0.0`).
 - `allow-fork-pull-request-target` could no longer be set from `config-path` - that file is read from the job's working directory, which under `pull_request_target` with a fork-head checkout is the fork PR's own content, so honoring it from there defeated the safety net it was meant to enforce.
 - The `OpenAI` package was pinned back to `2.12.0` - a Dependabot PR had bumped it to `2.13.0`, which builds with only a `NU1608` warning but is outside the `[2.12.0, 2.13.0)` range `Microsoft.Extensions.AI.OpenAI` actually declares support for.
 - `GitWriter` no longer leaves the job's working directory checked out on the pushed translation branch - any workflow step running after this action now still sees whatever ref the job actually checked out, not `doc-translator/<sha>`.
+- YAML frontmatter (`---` ... `---` at the top of a file, used by Docusaurus, Jekyll, Hugo, Astro/Starlight, MkDocs, and others) is no longer sent to the LLM as ordinary text - it was previously parsed as a heading/paragraph and had its keys/values translated, corrupting the metadata block. It's now captured verbatim and spliced back onto the output ahead of everything else, including the provenance header (frontmatter must stay the file's first bytes). Drift detection and the self-translation-cascade guard were also fixed to find the provenance header when frontmatter precedes it.
 
 ### Security
 

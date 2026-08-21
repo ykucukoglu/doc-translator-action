@@ -19,4 +19,13 @@ public sealed class DocumentTranslationContext
     /// back to the live AST node (and its placeholder/tag side tables) it was extracted from.
     /// </summary>
     public required IReadOnlyDictionary<string, BlockReconstructionContext> ReconstructionMap { get; init; }
+
+    /// <summary>
+    /// Verbatim source text (including the <c>---</c> delimiters) of a leading YAML frontmatter
+    /// block, captured before the block is removed from <see cref="MarkdownDocument"/> - Markdig's
+    /// normalizing renderer doesn't round-trip frontmatter delimiters correctly, so this is spliced
+    /// back onto the output directly instead of relying on that render path. Null if the document
+    /// has no frontmatter.
+    /// </summary>
+    public string? FrontmatterRawText { get; init; }
 }

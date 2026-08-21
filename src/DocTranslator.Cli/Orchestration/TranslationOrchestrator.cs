@@ -289,8 +289,11 @@ public sealed class TranslationOrchestrator(
             }
 
             var absoluteSourcePath = Path.Combine(options.RepositoryPath, relativeSourcePath);
-            var firstLine = File.ReadLines(absoluteSourcePath).FirstOrDefault() ?? string.Empty;
-            if (IsGeneratedOutput(firstLine))
+            // Bounded read, not the whole file: the provenance header is always within the first
+            // handful of lines (immediately after an optional frontmatter block), and this runs
+            // across every source file in a full-tree scan.
+            var leadingLines = string.Join('\n', File.ReadLines(absoluteSourcePath).Take(20));
+            if (IsGeneratedOutput(leadingLines))
             {
                 continue; // this file is itself a previously-generated translation, not a source
             }
@@ -351,8 +354,8 @@ public sealed class TranslationOrchestrator(
         await jobSummaryWriter.WriteCostEstimateAsync(estimate, cancellationToken);
     }
 
-    /// <summary>Every generated file starts with this header (see <see cref="TranslationProvenance.ToHeaderComment"/>) - a reliable, output-path-template-agnostic "we wrote this" signal, used everywhere this orchestrator needs to tell a real source apart from its own prior output.</summary>
-    private static bool IsGeneratedOutput(string text) => text.StartsWith(TranslationProvenance.HeaderPrefix, StringComparison.Ordinal);
+    /// <summary>Every generated file carries this header (see <see cref="TranslationProvenance.ToHeaderComment"/>, and <see cref="IDriftDetector.TryParseHeader"/> for where it's expected relative to a leading frontmatter block) - a reliable, output-path-template-agnostic "we wrote this" signal, used everywhere this orchestrator needs to tell a real source apart from its own prior output.</summary>
+    private bool IsGeneratedOutput(string text) => driftDetector.TryParseHeader(text) is not null;
 
     /// <summary>
     /// Scans every source file matching the glob (not just this run's changed files) and flags

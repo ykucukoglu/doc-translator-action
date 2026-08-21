@@ -33,6 +33,7 @@ public class AstReconstructorRoundTripTests
     [InlineData("lists-nested.md")]
     [InlineData("blockquotes.md")]
     [InlineData("html-blocks.md")]
+    [InlineData("frontmatter.md")]
     public async Task Reconstruct_AnyFixture_DoesNotThrowAndProducesNonEmptyOutput(string fixtureName)
     {
         var markdown = Fixtures.Load(fixtureName);
@@ -199,5 +200,27 @@ public class AstReconstructorRoundTripTests
         var outcome = await ReconstructAsync(context, translated);
 
         outcome.Markdown.Should().NotContain("doc-translator: source-hash");
+    }
+
+    [Fact]
+    public async Task Reconstruct_Frontmatter_SurvivesVerbatimAndStaysBeforeProvenanceHeader()
+    {
+        // Regression test: Markdig's normalizing renderer doesn't round-trip the YAML frontmatter
+        // block's `---` delimiters correctly, and frontmatter must stay the file's first bytes for
+        // a static site generator to recognize it - both are handled outside the normal render path
+        // (see MarkdigParserService.FrontmatterRawText / AstReconstructor.ReconstructAsync).
+        var markdown = Fixtures.Load("frontmatter.md");
+        var context = _parser.ParseAndExtractChunks("frontmatter.md", markdown);
+        var translated = FakeTranslate(context.Chunks);
+        var provenance = new TranslationProvenance("abc123", "frontmatter.md", "de", DateTimeOffset.UtcNow);
+
+        var outcome = await ReconstructAsync(context, translated, provenance);
+        var normalized = outcome.Markdown.Replace("\r\n", "\n");
+
+        normalized.Should().StartWith("---\ntitle: Getting Started");
+        normalized.Should().Contain("sidebar_position: 1\n---");
+        normalized.IndexOf("sidebar_position", StringComparison.Ordinal)
+            .Should().BeLessThan(normalized.IndexOf("doc-translator: source-hash", StringComparison.Ordinal));
+        normalized.Should().NotContain("⟪title"); // frontmatter itself was never sent for translation
     }
 }
