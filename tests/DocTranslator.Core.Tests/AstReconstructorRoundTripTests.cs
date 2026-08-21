@@ -34,6 +34,7 @@ public class AstReconstructorRoundTripTests
     [InlineData("blockquotes.md")]
     [InlineData("html-blocks.md")]
     [InlineData("frontmatter.md")]
+    [InlineData("admonitions.md")]
     public async Task Reconstruct_AnyFixture_DoesNotThrowAndProducesNonEmptyOutput(string fixtureName)
     {
         var markdown = Fixtures.Load(fixtureName);
@@ -222,5 +223,25 @@ public class AstReconstructorRoundTripTests
         normalized.IndexOf("sidebar_position", StringComparison.Ordinal)
             .Should().BeLessThan(normalized.IndexOf("doc-translator: source-hash", StringComparison.Ordinal));
         normalized.Should().NotContain("⟪title"); // frontmatter itself was never sent for translation
+    }
+
+    [Fact]
+    public async Task Reconstruct_CustomContainerAdmonition_FenceMarkersSurviveRoundTrip()
+    {
+        // Regression test: Markdig's CustomContainers extension only registers an HTML renderer,
+        // not a Markdown-to-Markdown one - see CustomContainerNormalizeRenderer.
+        var markdown = Fixtures.Load("admonitions.md");
+        var context = _parser.ParseAndExtractChunks("admonitions.md", markdown);
+        var translated = FakeTranslate(context.Chunks);
+
+        var outcome = await ReconstructAsync(context, translated);
+
+        outcome.Markdown.Should().Contain(":::note");
+        outcome.Markdown.Should().Contain(":::tip Custom Title");
+        outcome.Markdown.Should().Contain("⟪This admonition text");
+        outcome.Markdown.Should().Contain("⟪Tip content here.⟫");
+
+        // The closing fence must land on its own line, not glued onto the translated text.
+        outcome.Markdown.Replace("\r\n", "\n").Should().Contain("⟫\n:::");
     }
 }

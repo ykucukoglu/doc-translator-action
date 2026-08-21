@@ -98,6 +98,20 @@ public class MarkdigParserServiceTests
     }
 
     [Fact]
+    public void ParseAndExtractChunks_CustomContainerAdmonition_FenceMarkersNeverLeakIntoChunks()
+    {
+        var markdown = Fixtures.Load("admonitions.md");
+
+        var context = _sut.ParseAndExtractChunks("admonitions.md", markdown);
+
+        var allSourceText = string.Join('\n', context.Chunks.Select(c => c.SourceText));
+        allSourceText.Should().NotContain(":::");
+        allSourceText.Should().NotContain("note");
+        context.Chunks.Should().Contain(c => c.SourceText.Contains("no blank line"));
+        context.Chunks.Should().Contain(c => c.SourceText.Contains("Tip content"));
+    }
+
+    [Fact]
     public void ParseAndExtractChunks_SameSourceText_ProducesSameContentHash()
     {
         var context = _sut.ParseAndExtractChunks("a.md", "# Title\n\nSame text.\n");

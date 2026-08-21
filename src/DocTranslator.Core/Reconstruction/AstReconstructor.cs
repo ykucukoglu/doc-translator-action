@@ -322,6 +322,11 @@ public sealed class AstReconstructor : IAstReconstructor
         using var writer = new StringWriter();
         var renderer = new NormalizeRenderer(writer);
         MarkdigConfiguration.Pipeline.Setup(renderer);
+
+        // See CustomContainerNormalizeRenderer's own doc comment: Markdig's CustomContainers
+        // extension has no built-in Markdown round-trip renderer, only an HTML one.
+        renderer.ObjectRenderers.Insert(0, new CustomContainerNormalizeRenderer());
+
         renderer.Render(context.MarkdownDocument);
         writer.Flush();
         return writer.ToString();

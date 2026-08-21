@@ -20,6 +20,7 @@ Markdown is parsed into a real AST via [Markdig](https://github.com/xoofx/markdi
 - 🔁 **Resilient & concurrent** — Polly v8 exponential backoff on transient HTTP failures; batch requests run concurrently, bounded by `max-parallel-requests`.
 - 🕵️ **Drift detection** — flags translated files whose source has changed since they were last translated.
 - 🚫 **`.doc-ignore`** — exclude files like `CHANGELOG.md` or `DRAFT_*.md` from the pipeline entirely.
+- 📄 **Frontmatter & admonitions aware** — YAML frontmatter and Docusaurus/MyST `::: note ... :::` blocks are recognized structurally, not swept into translatable text like an ordinary paragraph.
 
 ## Quick start
 
@@ -187,6 +188,7 @@ Running `DocTranslator.Cli` directly (outside the Action) reads plain, unprefixe
 
 - **Output formatting is normalized, not byte-preserved.** Markdig re-renders the whole file on output, so things like emphasis character choice (`*` vs `_`) or blank-line spacing can change even in untouched paragraphs. Code fences, inline code, and link/image targets are never altered - only cosmetic Markdown syntax can shift. If your repo runs a formatter/linter (e.g. Prettier, markdownlint) against translated output in CI, account for that.
 - **Branches requiring signed commits aren't supported.** Commits are made via LibGit2Sharp with a plain author signature, not GPG/SSH-signed. If the target branch's protection rules require signed commits, the push will be rejected.
+- **JSX/MDX component text with no blank line before it is skipped, not corrupted.** Markdig parses a raw HTML/JSX-style block (`<Component>...</Component>`) with no blank line separating the tag from its inner text as one opaque block, so text written that tightly never reaches translation at all. Separating a component's content from its tags with a blank line (the common MDX convention, and what Docusaurus's own scaffolding generates) avoids this entirely - `::: note ... :::` admonitions aren't affected either way.
 
 ## Glossary
 
