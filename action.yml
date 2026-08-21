@@ -92,6 +92,8 @@ inputs:
 outputs:
   pr-url:
     description: 'URL of the opened (or reused) pull request. Empty on a dry run or when nothing was translated.'
+  pr-was-created:
+    description: '"true" if this run opened a new pull request, "false" if it reused an already-open one (or nothing was published).'
   translated-files-count:
     description: 'Number of translated files written in this run.'
   stale-translations-count:

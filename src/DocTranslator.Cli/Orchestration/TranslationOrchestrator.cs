@@ -78,11 +78,12 @@ public sealed class TranslationOrchestrator(
 
         CollectDriftWarnings(options, allSourceFiles, summary);
 
-        var pullRequestUrl = await PublishAsync(options, summary, filesToCommit, cancellationToken);
+        var prOutcome = await PublishAsync(options, summary, filesToCommit, cancellationToken);
+        var pullRequestUrl = prOutcome?.Url;
 
         consoleSummaryWriter.Write(summary, filesToCommit.Count, pullRequestUrl, options.DryRun);
         await jobSummaryWriter.WriteAsync(summary, filesToCommit.Count, pullRequestUrl, options.DryRun, cancellationToken);
-        await WriteGitHubOutputsAsync(pullRequestUrl, filesToCommit.Count, summary.DriftWarnings.Count, cancellationToken);
+        await WriteGitHubOutputsAsync(prOutcome, filesToCommit.Count, summary.DriftWarnings.Count, cancellationToken);
 
         return options.FailOnStaleTranslations && summary.DriftWarnings.Count > 0 ? 1 : 0;
     }
@@ -411,7 +412,7 @@ public sealed class TranslationOrchestrator(
             : normalizedRepoPath;
     }
 
-    private async Task<string?> PublishAsync(
+    private async Task<PullRequestOutcome?> PublishAsync(
         ActionOptions options,
         TranslationRunSummary summary,
         Dictionary<string, string> filesToCommit,
@@ -457,8 +458,7 @@ public sealed class TranslationOrchestrator(
             Token: options.GitHubToken,
             CleanupStaleBranches: options.CleanupStaleBranches);
 
-        var outcome = await gitHubService.CommitAndOpenPullRequestAsync(request, cancellationToken);
-        return outcome.Url;
+        return await gitHubService.CommitAndOpenPullRequestAsync(request, cancellationToken);
     }
 
     private static (string Owner, string RepositoryName) ResolveRepository()
@@ -474,7 +474,7 @@ public sealed class TranslationOrchestrator(
         return (parts[0], parts[1]);
     }
 
-    private static async Task WriteGitHubOutputsAsync(string? pullRequestUrl, int translatedFilesCount, int staleTranslationsCount, CancellationToken cancellationToken)
+    private static async Task WriteGitHubOutputsAsync(PullRequestOutcome? prOutcome, int translatedFilesCount, int staleTranslationsCount, CancellationToken cancellationToken)
     {
         var outputFile = Environment.GetEnvironmentVariable("GITHUB_OUTPUT");
         if (string.IsNullOrWhiteSpace(outputFile))
@@ -484,7 +484,8 @@ public sealed class TranslationOrchestrator(
 
         var lines = new[]
         {
-            $"pr-url={pullRequestUrl}",
+            $"pr-url={prOutcome?.Url}",
+            $"pr-was-created={(prOutcome?.WasCreated ?? false).ToString().ToLowerInvariant()}",
             $"translated-files-count={translatedFilesCount}",
             $"stale-translations-count={staleTranslationsCount}",
         };

@@ -134,7 +134,7 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `max-parallel-requests` | `4` | Bounds concurrent LLM batch requests per file/language. |
 | `cleanup-stale-branches` | `true` | Deletes this action's own `doc-translator/<sha>` branches once their PR is closed (merged or declined), so old branches don't pile up. Scoped strictly to that prefix and to branches with a known closed PR. |
 
-**Outputs:** `pr-url`, `translated-files-count`, `stale-translations-count`.
+**Outputs:** `pr-url`, `pr-was-created`, `translated-files-count`, `stale-translations-count`.
 
 ### Environment variables (local CLI use)
 
@@ -161,6 +161,11 @@ Running `DocTranslator.Cli` directly (outside the Action) reads plain, unprefixe
 - **Resilience**: transient HTTP failures (429 rate limits, 5xx) are retried with Polly v8 exponential backoff, independent of the semantic retry that repairs malformed translation responses.
 - **Concurrency**: LLM batch requests for a file/language run concurrently, bounded by `max-parallel-requests` (default 4, via a `SemaphoreSlim`).
 - **Token usage**: prompt/completion token totals are accumulated across the whole run and reported in both the console log and the Job Summary.
+
+## Known limitations
+
+- **Output formatting is normalized, not byte-preserved.** Markdig re-renders the whole file on output, so things like emphasis character choice (`*` vs `_`) or blank-line spacing can change even in untouched paragraphs. Code fences, inline code, and link/image targets are never altered - only cosmetic Markdown syntax can shift. If your repo runs a formatter/linter (e.g. Prettier, markdownlint) against translated output in CI, account for that.
+- **Branches requiring signed commits aren't supported.** Commits are made via LibGit2Sharp with a plain author signature, not GPG/SSH-signed. If the target branch's protection rules require signed commits, the push will be rejected.
 
 ## Glossary
 
