@@ -66,6 +66,9 @@ public sealed class ConfigFile
     [JsonPropertyName("openAiModel")]
     public string? OpenAiModel { get; set; }
 
+    [JsonPropertyName("openAiBaseUrl")]
+    public string? OpenAiBaseUrl { get; set; }
+
     [JsonPropertyName("claudeModel")]
     public string? ClaudeModel { get; set; }
 }

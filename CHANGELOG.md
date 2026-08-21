@@ -42,6 +42,7 @@ Everything below is pending the first tagged release (`v1.0.0`).
 - Docusaurus/MyST-style `::: note ... :::` admonitions are now recognized (Markdig's CustomContainers extension) - previously the fence lines weren't parsed as anything special and were swept into an ordinary paragraph, sending `note`/`tip` and the fence markers themselves to the LLM as translatable text. Only the content inside is translated now; a custom Markdown round-trip renderer re-emits the fence on output, since Markdig only ships one for HTML.
 - Hugo's `+++`-delimited TOML frontmatter is now recognized too - Markdig has no native TOML frontmatter support at all (only YAML), so it's stripped from the raw text before Markdig ever parses it and spliced back verbatim ahead of the provenance header, the same way YAML frontmatter is handled.
 - The PR summary comment now includes: a side-by-side original/translated preview (first 3 chunks per file, capped at 5 file/language pairs, in a collapsible `<details>` block); a "Preserved untouched" count of code blocks, inline code spans, links, and named `dont_translate` glossary terms; and a mention of the `GITHUB_ACTOR` who triggered the run.
+- `openai-base-url` input: redirects the `openai` provider at any OpenAI-compatible endpoint (Ollama, LM Studio, vLLM, OpenRouter, ...) instead of api.openai.com, for running against a free/local model with no real OpenAI account. (GitHub Models was considered as a zero-key default too, but was fully retired on July 30, 2026 - no inference API is left to integrate with.)
 
 ### Security
 

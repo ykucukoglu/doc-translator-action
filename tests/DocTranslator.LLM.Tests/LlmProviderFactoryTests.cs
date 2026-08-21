@@ -23,7 +23,7 @@ public class LlmProviderFactoryTests
     public LlmProviderFactoryTests()
     {
         _chatClientFactory.Setup(f => f.CreateGemini(It.IsAny<string>(), It.IsAny<string>())).Returns(Mock.Of<IChatClient>());
-        _chatClientFactory.Setup(f => f.CreateOpenAi(It.IsAny<string>(), It.IsAny<string>())).Returns(Mock.Of<IChatClient>());
+        _chatClientFactory.Setup(f => f.CreateOpenAi(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>())).Returns(Mock.Of<IChatClient>());
         _chatClientFactory.Setup(f => f.CreateClaude(It.IsAny<string>(), It.IsAny<string>())).Returns(Mock.Of<IChatClient>());
         _chatClientFactory.Setup(f => f.CreateAzureOpenAi(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).Returns(Mock.Of<IChatClient>());
     }
@@ -147,6 +147,31 @@ public class LlmProviderFactoryTests
         var service = sut.Create();
 
         service.Should().NotBeOfType<FallbackLlmTranslationService>();
+    }
+
+    [Fact]
+    public void Create_OpenAiBaseUrlSet_IsPassedToChatClientFactory()
+    {
+        var sut = BuildSut(new Dictionary<string, string>
+        {
+            ["OPENAI_API_KEY"] = "ollama",
+            ["INPUT_OPENAI_MODEL"] = "llama3",
+            ["INPUT_OPENAI_BASE_URL"] = "http://localhost:11434/v1",
+        });
+
+        sut.Create();
+
+        _chatClientFactory.Verify(f => f.CreateOpenAi("ollama", "llama3", "http://localhost:11434/v1"), Times.Once);
+    }
+
+    [Fact]
+    public void Create_NoOpenAiBaseUrl_PassesNullToChatClientFactory()
+    {
+        var sut = BuildSut(new Dictionary<string, string> { ["OPENAI_API_KEY"] = "o-key" });
+
+        sut.Create();
+
+        _chatClientFactory.Verify(f => f.CreateOpenAi("o-key", It.IsAny<string>(), null), Times.Once);
     }
 
     [Fact]

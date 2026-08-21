@@ -26,6 +26,9 @@ public sealed class ActionOptions
 
     public string? OpenAiModel { get; init; }
 
+    /// <summary>Redirects the OpenAI provider at any OpenAI-compatible endpoint (Ollama, LM Studio, vLLM, OpenRouter, ...) instead of api.openai.com.</summary>
+    public string? OpenAiBaseUrl { get; init; }
+
     public string? ClaudeModel { get; init; }
 
     public required IReadOnlyList<string> TargetLanguages { get; init; }

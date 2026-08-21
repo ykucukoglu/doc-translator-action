@@ -39,6 +39,9 @@ inputs:
     description: 'OpenAI model id.'
     required: false
     default: 'gpt-5-mini'
+  openai-base-url:
+    description: 'Redirects the openai provider at any OpenAI-compatible endpoint (e.g. Ollama, LM Studio, vLLM, OpenRouter) instead of api.openai.com - lets this run against a free/local model with no real OpenAI account. openai-api-key is still required but can be any non-empty placeholder value if the endpoint does not check it.'
+    required: false
   claude-model:
     description: 'Claude model id.'
     required: false
@@ -60,7 +63,7 @@ inputs:
     required: false
     default: '.doc-terms.json'
   config-path:
-    description: 'Path to an optional JSON config file supplying any of target-languages, source-path, include-glob, glossary-path, output-path-template, base-branch, fail-on-stale-translations, backfill-missing-translations, estimate-cost-only, max-parallel-requests, cleanup-stale-branches, source-language, max-batch-tokens, llm-provider, llm-fallback-provider, gemini-model, openai-model, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file. Note: allow-fork-pull-request-target is deliberately NOT supported here - see its own description below.'
+    description: 'Path to an optional JSON config file supplying any of target-languages, source-path, include-glob, glossary-path, output-path-template, base-branch, fail-on-stale-translations, backfill-missing-translations, estimate-cost-only, max-parallel-requests, cleanup-stale-branches, source-language, max-batch-tokens, llm-provider, llm-fallback-provider, gemini-model, openai-model, openai-base-url, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file. Note: allow-fork-pull-request-target is deliberately NOT supported here - see its own description below.'
     required: false
   output-path-template:
     description: 'Template for translated file output paths. Supports {lang}, {relativePath}, {dir}, {filename}, {ext} - e.g. "{dir}/{filename}.{lang}.{ext}" for MkDocs/Docusaurus-style co-located naming.'

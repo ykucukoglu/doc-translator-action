@@ -104,7 +104,8 @@ public sealed class LlmProviderFactory(
                 RequireKey(geminiKey, "GEMINI_API_KEY"), ModelOrDefault("INPUT_GEMINI_MODEL", DefaultGeminiModel))),
 
             "openai" => BuildService("openai", chatClientFactory.CreateOpenAi(
-                RequireKey(openAiKey, "OPENAI_API_KEY"), ModelOrDefault("INPUT_OPENAI_MODEL", DefaultOpenAiModel))),
+                RequireKey(openAiKey, "OPENAI_API_KEY"), ModelOrDefault("INPUT_OPENAI_MODEL", DefaultOpenAiModel),
+                environment.GetEnvironmentVariable("INPUT_OPENAI_BASE_URL"))),
 
             "claude" => BuildService("claude", chatClientFactory.CreateClaude(
                 RequireKey(claudeKey, "ANTHROPIC_API_KEY"), ModelOrDefault("INPUT_CLAUDE_MODEL", DefaultClaudeModel))),

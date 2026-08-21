@@ -37,6 +37,16 @@ public class ChatClientFactoryTests
     }
 
     [Fact]
+    public void CreateOpenAi_WithBaseUrl_ReturnsNonNullChatClient()
+    {
+        // Points at an OpenAI-compatible endpoint (Ollama, LM Studio, vLLM, OpenRouter, ...)
+        // instead of api.openai.com - construction succeeds offline the same way the others do.
+        var client = _sut.CreateOpenAi("dummy-key", "llama3", "http://localhost:11434/v1");
+
+        client.Should().NotBeNull();
+    }
+
+    [Fact]
     public void CreateAzureOpenAi_ReturnsNonNullChatClient()
     {
         var client = _sut.CreateAzureOpenAi("dummy-key", "https://my-resource.openai.azure.com/", "my-deployment");

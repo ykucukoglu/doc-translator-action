@@ -98,6 +98,7 @@ public static class ActionOptionsBinder
             LlmFallbackProvider = ReadInput("llm-fallback-provider") ?? config?.LlmFallbackProvider,
             GeminiModel = ReadInput("gemini-model") ?? config?.GeminiModel,
             OpenAiModel = ReadInput("openai-model") ?? config?.OpenAiModel,
+            OpenAiBaseUrl = ReadInput("openai-base-url") ?? config?.OpenAiBaseUrl,
             ClaudeModel = ReadInput("claude-model") ?? config?.ClaudeModel,
             TargetLanguages = targetLanguagesRaw
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
@@ -137,6 +138,7 @@ public static class ActionOptionsBinder
         SetIfPresent("INPUT_LLM_FALLBACK_PROVIDER", options.LlmFallbackProvider);
         SetIfPresent("INPUT_GEMINI_MODEL", options.GeminiModel);
         SetIfPresent("INPUT_OPENAI_MODEL", options.OpenAiModel);
+        SetIfPresent("INPUT_OPENAI_BASE_URL", options.OpenAiBaseUrl);
         SetIfPresent("INPUT_CLAUDE_MODEL", options.ClaudeModel);
         SetIfPresent("INPUT_MAX_PARALLEL_REQUESTS", options.MaxParallelRequests.ToString(CultureInfo.InvariantCulture));
     }

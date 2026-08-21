@@ -107,6 +107,21 @@ Translated files sit next to the source, differentiated by a locale suffix (`gui
           output-path-template: '{dir}/{filename}.{lang}.{ext}'
 ```
 
+### Local / free models
+
+`openai-base-url` redirects the `openai` provider at any OpenAI-compatible endpoint - a real API key is never required, but `openai-api-key` still is; any non-empty placeholder works if the endpoint doesn't check it. Points at a self-hosted [Ollama](https://ollama.com) instance here, but the same input works for LM Studio, vLLM, OpenRouter, or any other OpenAI-compatible server:
+
+```yaml
+      - uses: ykucukoglu/doc-translator-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          llm-provider: openai
+          openai-api-key: ollama
+          openai-model: llama3
+          openai-base-url: http://localhost:11434/v1
+          target-languages: tr,de
+```
+
 ### Local dry run
 
 No API keys or GitHub token needed:
@@ -137,6 +152,7 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `llm-fallback-provider` | — | A second provider to retry against once if `llm-provider` fails after exhausting its own retries. Must differ from the primary and have its own credentials set. |
 | `gemini-model` | `gemini-2.5-flash` | Gemini model id. |
 | `openai-model` | `gpt-5-mini` | OpenAI model id. |
+| `openai-base-url` | — | Redirects the `openai` provider at any OpenAI-compatible endpoint (Ollama, LM Studio, vLLM, OpenRouter, ...) instead of api.openai.com - see [Local / free models](#local--free-models) below. |
 | `claude-model` | `claude-sonnet-5` | Claude model id. |
 | `target-languages` | `tr` | Comma-separated target language codes, e.g. `tr,de,fr`. |
 | `source-path` | `docs` | Root folder to scan for documentation. |
