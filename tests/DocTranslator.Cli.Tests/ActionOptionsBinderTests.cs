@@ -11,6 +11,7 @@ namespace DocTranslator.Cli.Tests;
 public sealed class ActionOptionsBinderTests : IDisposable
 {
     private readonly List<string> _touchedVars = [];
+    private readonly List<string> _tempFiles = [];
 
     [Fact]
     public void Bind_PushEventEmptyGitHubBaseRef_ResolvesBaseBranchToNull()
@@ -76,6 +77,68 @@ public sealed class ActionOptionsBinderTests : IDisposable
         act.Should().Throw<InvalidOperationException>().WithMessage("*github-token*");
     }
 
+    [Fact]
+    public void Bind_ForkPullRequestTarget_ForcesDryRunEvenWithPrModeTrue()
+    {
+        Set("GITHUB_EVENT_NAME", "pull_request_target");
+        Set("GITHUB_EVENT_PATH", WriteEventPayload(fork: true));
+        Set("INPUT_PR-MODE", "true");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.DryRun.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Bind_ForkPullRequestTargetWithAllowFlag_RespectsRequestedPrMode()
+    {
+        Set("GITHUB_EVENT_NAME", "pull_request_target");
+        Set("GITHUB_EVENT_PATH", WriteEventPayload(fork: true));
+        Set("INPUT_PR-MODE", "true");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+        Set("INPUT_ALLOW-FORK-PULL-REQUEST-TARGET", "true");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.DryRun.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Bind_SameRepoPullRequestTarget_DoesNotForceDryRun()
+    {
+        Set("GITHUB_EVENT_NAME", "pull_request_target");
+        Set("GITHUB_EVENT_PATH", WriteEventPayload(fork: false));
+        Set("INPUT_PR-MODE", "true");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.DryRun.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Bind_RegularPullRequestEvent_DoesNotForceDryRun()
+    {
+        Set("GITHUB_EVENT_NAME", "pull_request");
+        Set("GITHUB_EVENT_PATH", WriteEventPayload(fork: true));
+        Set("INPUT_PR-MODE", "true");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.DryRun.Should().BeFalse();
+    }
+
+    private string WriteEventPayload(bool fork)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"doc-translator-event-{Guid.NewGuid():N}.json");
+        var forkValue = fork ? "true" : "false";
+        File.WriteAllText(path, "{\"pull_request\":{\"head\":{\"repo\":{\"fork\":" + forkValue + "}}}}");
+        _tempFiles.Add(path);
+        return path;
+    }
+
     private void Set(string name, string value)
     {
         _touchedVars.Add(name);
@@ -87,6 +150,11 @@ public sealed class ActionOptionsBinderTests : IDisposable
         foreach (var name in _touchedVars)
         {
             Environment.SetEnvironmentVariable(name, null);
+        }
+
+        foreach (var path in _tempFiles)
+        {
+            File.Delete(path);
         }
     }
 }

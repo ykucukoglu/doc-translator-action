@@ -48,7 +48,7 @@ inputs:
     required: false
     default: '.doc-terms.json'
   config-path:
-    description: 'Path to an optional JSON config file supplying any of target-languages, source-path, include-glob, glossary-path, output-path-template, base-branch, fail-on-stale-translations, backfill-missing-translations, estimate-cost-only, max-parallel-requests, llm-provider, gemini-model, openai-model, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file.'
+    description: 'Path to an optional JSON config file supplying any of target-languages, source-path, include-glob, glossary-path, output-path-template, base-branch, fail-on-stale-translations, backfill-missing-translations, estimate-cost-only, allow-fork-pull-request-target, max-parallel-requests, llm-provider, gemini-model, openai-model, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file.'
     required: false
   output-path-template:
     description: 'Template for translated file output paths. Supports {lang}, {relativePath}, {dir}, {filename}, {ext} - e.g. "{dir}/{filename}.{lang}.{ext}" for MkDocs/Docusaurus-style co-located naming.'
@@ -78,6 +78,10 @@ inputs:
     default: 'false'
   estimate-cost-only:
     description: 'When true, reports an estimated input-token count for the files/languages this run would translate (skipping anything already cached) and exits - no LLM call, no git/GitHub access. Useful before a first backfill run against a large existing doc set.'
+    required: false
+    default: 'false'
+  allow-fork-pull-request-target:
+    description: 'On a pull_request_target run triggered by a fork PR, this action forces dry-run by default regardless of pr-mode - that combination runs with the base repository''s secrets/token against untrusted PR content, a known secret-exfiltration pattern. Set this to true only if you understand the risk and have already gated the job (e.g. behind a manual approval environment).'
     required: false
     default: 'false'
 

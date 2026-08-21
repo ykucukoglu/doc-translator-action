@@ -37,6 +37,9 @@ public sealed class ConfigFile
     [JsonPropertyName("estimateCostOnly")]
     public bool? EstimateCostOnly { get; set; }
 
+    [JsonPropertyName("allowForkPullRequestTarget")]
+    public bool? AllowForkPullRequestTarget { get; set; }
+
     [JsonPropertyName("maxParallelRequests")]
     public int? MaxParallelRequests { get; set; }
 

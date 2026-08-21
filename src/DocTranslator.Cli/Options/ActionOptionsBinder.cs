@@ -54,6 +54,18 @@ public static class ActionOptionsBinder
         var prMode = cli.PrMode ?? ParseBool(ReadInput("pr-mode")) ?? true;
         var dryRun = cli.DryRun ?? ParseBool(ReadInput("dry-run")) ?? (estimateCostOnly || !prMode);
 
+        // pull_request_target runs with the base repo's secrets/token even when the PR itself is
+        // an untrusted fork's content - opening a PR (or pushing) from that content is exactly the
+        // secret-exfiltration pattern GitHub's own docs warn about. Force dry-run regardless of
+        // what pr-mode/dry-run resolved to, unless the caller explicitly accepts the risk (e.g.
+        // because they've already gated this job behind a manual approval).
+        var allowForkPullRequestTarget = ParseBool(ReadInput("allow-fork-pull-request-target")) ?? config?.AllowForkPullRequestTarget ?? false;
+        if (!dryRun && !allowForkPullRequestTarget && IsForkPullRequestTarget())
+        {
+            Console.WriteLine("::warning::pull_request_target with a fork PR detected - forcing dry-run to avoid using repository secrets on untrusted content. Set allow-fork-pull-request-target: true if this is intentional.");
+            dryRun = true;
+        }
+
         // github-token is only required when we're actually going to push/open a PR - a dry
         // run never touches GitHub credentials, so local smoke testing needs no token at all.
         var githubToken = cli.GitHubToken ?? ReadInput("github-token")
@@ -160,4 +172,35 @@ public static class ActionOptionsBinder
     // only populated for pull_request events. A plain `??` chain treats "" as a present value, so
     // this normalizes it to null before it reaches any downstream `?? "main"`-style default.
     private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static bool IsForkPullRequestTarget()
+    {
+        if (Environment.GetEnvironmentVariable("GITHUB_EVENT_NAME") != "pull_request_target")
+        {
+            return false;
+        }
+
+        var eventPath = Environment.GetEnvironmentVariable("GITHUB_EVENT_PATH");
+        if (string.IsNullOrWhiteSpace(eventPath) || !File.Exists(eventPath))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(eventPath));
+            return document.RootElement
+                .GetProperty("pull_request")
+                .GetProperty("head")
+                .GetProperty("repo")
+                .GetProperty("fork")
+                .GetBoolean();
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            // Malformed/unexpected payload shape on a *confirmed* pull_request_target event - fail
+            // closed (assume it could be a fork) rather than silently skipping the safety check.
+            return true;
+        }
+    }
 }
