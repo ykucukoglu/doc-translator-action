@@ -1,0 +1,141 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+import MermaidDiagram from '../components/MermaidDiagram.astro';
+
+const headings = [
+  { depth: 2, slug: 'why-an-ast-not-regex', text: 'Why an AST, not regex' },
+  { depth: 2, slug: 'the-pipeline', text: 'The pipeline' },
+  { depth: 2, slug: 'cost-reliability-controls', text: 'Cost & reliability controls' },
+  { depth: 2, slug: 'configuration-precedence', text: 'Configuration precedence' },
+  { depth: 2, slug: 'observability', text: 'Observability' },
+  { depth: 2, slug: 'solution-layout', text: 'Solution layout' },
+];
+
+const dependencyDiagram = `flowchart LR
+    Cli[DocTranslator.Cli] --> LLM[DocTranslator.LLM]
+    Cli --> GitHub[DocTranslator.GitHub]
+    LLM --> Core[DocTranslator.Core]
+    GitHub --> Core`;
+
+const pipelineDiagram = `flowchart LR
+    A[Git diff] --> B[AST parse &<br/>chunk extraction]
+    B --> C{Cached?}
+    C -->|yes| E[Reconstruction]
+    C -->|no| D[LLM translate]
+    D -->|marker missing| D
+    D --> E
+    E --> F[Write & open PR]`;
+
+const layers = [
+  { name: 'DocTranslator.Core', responsibility: "AST parsing/reconstruction, glossary, .doc-ignore, drift detection, token usage tracking - no network/API dependencies" },
+  { name: 'DocTranslator.LLM', responsibility: 'Multi-provider translation via IChatClient, resilience, batching, chunk repair' },
+  { name: 'DocTranslator.GitHub', responsibility: 'Git diff analysis, translation cache, PR creation via LibGit2Sharp + Octokit' },
+  { name: 'DocTranslator.Cli', responsibility: "DI wiring, input binding, orchestration pipeline, System.CommandLine entrypoint" },
+];
+---
+
+<DocsLayout
+  title="Architecture"
+  description="How doc-translator-action's AST parse, translate, and reconstruct pipeline actually works."
+  headings={headings}
+>
+  <p>
+    <code>doc-translator-action</code> is a .NET 9 GitHub Action split into four layers, each with a single responsibility
+    and a strict dependency direction: <code>Cli</code> depends on <code>LLM</code> and <code>GitHub</code>, both of which
+    depend on <code>Core</code>, and <code>Core</code> depends on nothing outside the .NET BCL and Markdig.
+  </p>
+
+  <MermaidDiagram diagram={dependencyDiagram} caption="Project dependency graph" />
+
+  <h2 id="why-an-ast-not-regex">Why an AST, not regex</h2>
+  <p>
+    Markdown translation tools that operate on raw text or regular expressions eventually mistranslate something inside a
+    code fence, mangle a URL, or drift a closing tag out of position. <code>doc-translator-action</code> instead parses
+    every source file into a real Abstract Syntax Tree via
+    <a href="https://github.com/xoofx/markdig" target="_blank" rel="noreferrer">Markdig</a>, so "is this text translatable"
+    is a question the parser already answered — not a pattern we're guessing at.
+  </p>
+
+  <h2 id="the-pipeline">The pipeline</h2>
+
+  <MermaidDiagram diagram={pipelineDiagram} caption="Pipeline flow" />
+
+  <ol>
+    <li>
+      <strong>Git diff</strong> (<code>DocTranslator.GitHub</code>) — LibGit2Sharp diffs the triggering commit against its
+      base, filtered by <code>include-glob</code> and <code>.doc-ignore</code>, so only files that actually changed are
+      parsed at all.
+    </li>
+    <li>
+      <strong>AST parse &amp; chunk extraction</strong> (<code>DocTranslator.Core</code>) — <code>MarkdigParserService</code>
+      walks the AST and extracts one <code>TranslationChunk</code> per translatable leaf block (paragraph, heading, table
+      cell, list item, blockquote). Non-text inlines (code spans, autolinks, raw HTML, line breaks) become atomic
+      placeholder tokens like <code>⟦CODE0⟧</code>; inlines whose children are translatable but whose wrapper carries
+      metadata (emphasis, links) become paired tags like <code>&lt;em0&gt;...&lt;/em0&gt;</code>. Code blocks, raw HTML
+      blocks, and a leading YAML/TOML frontmatter block are skipped entirely.
+    </li>
+    <li>
+      <strong>LLM translation</strong> (<code>DocTranslator.LLM</code>) — chunks are batched and sent to whichever
+      provider is configured (Gemini, OpenAI, Claude, or Azure OpenAI, all behind
+      <code>Microsoft.Extensions.AI</code>'s <code>IChatClient</code>) with structured JSON output, so the response is
+      <code>{"{chunkId, translatedText}"}</code> pairs, not free text to parse.
+    </li>
+    <li>
+      <strong>Self-healing reconstruction</strong> (<code>DocTranslator.Core</code>) — <code>AstReconstructor</code>
+      verifies every placeholder/tag survived translation. If one didn't, that single chunk is re-translated with a
+      repair prompt (up to 2 attempts) before falling back to leaving just that paragraph untranslated — one bad response
+      never corrupts the document.
+    </li>
+    <li>
+      <strong>Write &amp; publish</strong> (<code>DocTranslator.GitHub</code>) — translated files are written to the
+      configured <code>output-path-template</code>, committed to a branch keyed to the triggering commit SHA, and a pull
+      request is opened (or reused) with a summary comment.
+    </li>
+  </ol>
+
+  <h2 id="cost-reliability-controls">Cost &amp; reliability controls</h2>
+  <ul>
+    <li>
+      <strong>Content-hash translation cache</strong> — each chunk's <code>ContentHash</code> (SHA-256 of its
+      placeholder-encoded text) is checked against a per-file, per-language cache before hitting the LLM. Unrelated
+      edits elsewhere in a file never invalidate untouched paragraphs.
+    </li>
+    <li><strong>Concurrency</strong> — batches for one file/language translate concurrently, bounded by <code>max-parallel-requests</code>.</li>
+    <li><strong>Resilience</strong> — transient HTTP failures (429/5xx) are retried with Polly v8 exponential backoff, independent of the semantic retry that repairs malformed JSON or missing markers.</li>
+    <li><strong>Drift detection</strong> — every translated file carries an HTML-comment provenance header. A later run flags any translation whose source has since changed without a corresponding re-translation.</li>
+  </ul>
+
+  <h2 id="configuration-precedence">Configuration precedence</h2>
+  <p>
+    Every setting resolves in the same order regardless of source: an explicit CLI flag wins, then the matching
+    <code>INPUT_*</code> Action input, then the optional <code>config-path</code> JSON file, then a built-in default.
+  </p>
+
+  <h2 id="observability">Observability</h2>
+  <p>
+    Every run produces a GitHub Actions Job Summary with per-language chunk/cache counts and token usage,
+    <code>::group::</code>/<code>::warning::</code>/<code>::error::</code> workflow-command annotations, and a PR comment
+    summarizing the same plus a side-by-side original/translated preview, so a reviewer can sanity-check quality without
+    opening every file.
+  </p>
+
+  <h2 id="solution-layout">Solution layout</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Project</th>
+        <th>Responsibility</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        layers.map((layer) => (
+          <tr>
+            <td><code>{layer.name}</code></td>
+            <td>{layer.responsibility}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</DocsLayout>

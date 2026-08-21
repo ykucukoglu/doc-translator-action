@@ -1,0 +1,40 @@
+---
+// Hand-written mark, not a generated image: a hairline square (the AST "node") containing
+// "DT" set in Geist Mono. Inlined as SVG (not <img>) so it always renders in the current
+// theme's ink color with zero extra request. public/favicon.svg is the same shape.
+interface Props {
+  size?: number;
+}
+const { size = 28 } = Astro.props;
+---
+
+<svg
+  width={size}
+  height={size}
+  viewBox="0 0 32 32"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+  role="img"
+  aria-label="doc-translator-action"
+  class="wordmark-mark"
+>
+  <rect x="1.5" y="1.5" width="29" height="29" rx="2" class="wordmark-square" />
+  <text x="16" y="21" text-anchor="middle" class="wordmark-text">DT</text>
+</svg>
+
+<style>
+  .wordmark-mark {
+    flex-shrink: 0;
+  }
+  .wordmark-square {
+    fill: none;
+    stroke: var(--color-accent);
+    stroke-width: 1.5;
+  }
+  .wordmark-text {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    fill: var(--color-ink);
+  }
+</style>

@@ -1,0 +1,59 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import TableOfContents from '../components/TableOfContents.astro';
+import '../styles/prose.css';
+
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+interface Props {
+  title: string;
+  description: string;
+  headings?: Heading[];
+}
+const { title, description, headings = [] } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="container docs-grid">
+    <Sidebar currentPath={Astro.url.pathname} />
+    <article class="prose">
+      <h1>{title}</h1>
+      <slot />
+    </article>
+    <TableOfContents headings={headings} />
+  </div>
+</BaseLayout>
+
+<style>
+  .docs-grid {
+    display: grid;
+    grid-template-columns: 12rem minmax(0, 1fr);
+    gap: var(--space-12);
+    padding-block: var(--space-12);
+  }
+
+  .docs-grid > .prose {
+    min-width: 0;
+    max-width: 42rem;
+  }
+
+  @media (min-width: 64rem) {
+    .docs-grid {
+      grid-template-columns: 12rem minmax(0, 42rem) 12rem;
+    }
+  }
+
+  @media (max-width: 48rem) {
+    .docs-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .docs-grid :global(.docs-sidebar),
+    .docs-grid :global(.toc) {
+      position: static;
+    }
+  }
+</style>

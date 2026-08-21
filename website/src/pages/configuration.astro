@@ -1,0 +1,97 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+import { actionInputs, actionOutputs, CORE_INPUT_NAMES, SECRET_INPUT_NAMES } from '../utils/action-schema';
+
+const coreInputs = actionInputs.filter((i) => CORE_INPUT_NAMES.has(i.name));
+const secretInputs = actionInputs.filter((i) => SECRET_INPUT_NAMES.has(i.name));
+const advancedInputs = actionInputs.filter((i) => !CORE_INPUT_NAMES.has(i.name) && !SECRET_INPUT_NAMES.has(i.name));
+
+const headings = [
+  { depth: 2, slug: 'secrets', text: 'Credentials' },
+  { depth: 2, slug: 'core-inputs', text: 'Core inputs' },
+  { depth: 2, slug: 'advanced-inputs', text: 'Advanced inputs' },
+  { depth: 2, slug: 'outputs', text: 'Outputs' },
+];
+---
+
+<DocsLayout
+  title="Configuration"
+  description={`Every one of the ${actionInputs.length} real action.yml inputs, generated directly from the source file so this page can never drift.`}
+  headings={headings}
+>
+  <p>
+    Generated directly from this repository's own <code>action.yml</code> at build time — every input and default
+    below is the real, current source of truth, not hand-copied prose that can drift out of sync.
+  </p>
+
+  <h2 id="secrets">Credentials</h2>
+  <p>Set exactly one of these, unless you also set <code>llm-provider</code> explicitly.</p>
+  <table data-input-table="secrets">
+    <thead>
+      <tr><th>Input</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      {
+        secretInputs.map((input) => (
+          <tr data-input-row data-input-name={input.name}>
+            <td><code>{input.name}</code></td>
+            <td>{input.description}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2 id="core-inputs">Core inputs</h2>
+  <table data-input-table="core">
+    <thead>
+      <tr><th>Input</th><th>Default</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      {
+        coreInputs.map((input) => (
+          <tr data-input-row data-input-name={input.name}>
+            <td><code>{input.name}</code></td>
+            <td>{input.default !== null ? <code>{input.default}</code> : '—'}</td>
+            <td>{input.description}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2 id="advanced-inputs">Advanced inputs</h2>
+  <table data-input-table="advanced">
+    <thead>
+      <tr><th>Input</th><th>Default</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      {
+        advancedInputs.map((input) => (
+          <tr data-input-row data-input-name={input.name}>
+            <td><code>{input.name}</code></td>
+            <td>{input.default !== null ? <code>{input.default}</code> : '—'}</td>
+            <td>{input.description}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <h2 id="outputs">Outputs</h2>
+  <table>
+    <thead>
+      <tr><th>Output</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      {
+        actionOutputs.map((output) => (
+          <tr>
+            <td><code>{output.name}</code></td>
+            <td>{output.description}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</DocsLayout>

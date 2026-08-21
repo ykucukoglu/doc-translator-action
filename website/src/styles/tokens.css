@@ -1,0 +1,61 @@
+/*
+  Theme identity: "Dark Charcoal & Mint" - the site's default, deliberate brand choice (not tied
+  to OS preference). A warm, considered light counterpart exists for the toggle, reusing the
+  same mint/amber hue family so the brand reads consistently in either theme - not an inverted
+  clone. Near-sharp corners and hairline borders everywhere instead of box-shadow.
+*/
+:root {
+  --color-bg: #12161c;
+  --color-bg-raised: #1a2028;
+  --color-ink: #ece8df;
+  --color-ink-muted: #8a93a0;
+  --color-rule: #2b323c;
+  --color-accent: #4fd8a3;
+  --color-accent-ink: #06231a;
+  --color-signal: #e3a23d;
+
+  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  --text-hero: 3.5rem;
+  --text-h1: 2.25rem;
+  --text-h2: 1.75rem;
+  --text-h3: 1.375rem;
+  --text-h4: 1.125rem;
+  --text-body-lg: 1.125rem;
+  --text-body: 1rem;
+  --text-small: 0.875rem;
+  --text-code: 0.9375rem;
+  --text-micro: 0.75rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
+
+  --border-hairline: 1px solid var(--color-rule);
+  --radius-sm: 2px;
+  --radius-md: 4px;
+
+  color-scheme: dark;
+}
+
+/* Secondary theme, opt-in via the header toggle - a real light palette in the same mint/amber
+   family, not a naive inversion of the dark one. */
+[data-theme='light'] {
+  --color-bg: #f4f2ed;
+  --color-bg-raised: #e8e5dd;
+  --color-ink: #14181d;
+  --color-ink-muted: #5b6470;
+  --color-rule: #d8d4c9;
+  --color-accent: #1f7a5c;
+  --color-accent-ink: #f5fbf8;
+  --color-signal: #b5730e;
+
+  color-scheme: light;
+}

@@ -1,0 +1,66 @@
+---
+import { withBase } from '../utils/url';
+
+interface Props {
+  currentPath: string;
+}
+const { currentPath } = Astro.props;
+
+const docsPages = [
+  { label: 'Getting started', href: '/getting-started' },
+  { label: 'Architecture', href: '/architecture' },
+  { label: 'Configuration', href: '/configuration' },
+  { label: 'Glossary', href: '/glossary' },
+];
+---
+
+<nav aria-label="Docs" class="docs-sidebar">
+  <p class="eyebrow">Docs</p>
+  <ul>
+    {
+      docsPages.map((page) => (
+        <li>
+          <a href={withBase(page.href)} aria-current={currentPath.endsWith(page.href) ? 'page' : undefined}>
+            {page.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>
+
+<style>
+  .docs-sidebar {
+    position: sticky;
+    top: calc(var(--space-16) + var(--space-4));
+  }
+
+  .docs-sidebar ul {
+    list-style: none;
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .docs-sidebar a {
+    display: block;
+    padding: var(--space-1) 0;
+    text-decoration: none;
+    font-size: var(--text-small);
+    color: var(--color-ink-muted);
+    border-left: 2px solid transparent;
+    padding-left: var(--space-3);
+  }
+
+  .docs-sidebar a:hover {
+    color: var(--color-ink);
+  }
+
+  .docs-sidebar a[aria-current='page'] {
+    color: var(--color-ink);
+    border-left-color: var(--color-accent);
+    font-weight: 500;
+  }
+</style>

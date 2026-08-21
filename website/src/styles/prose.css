@@ -1,0 +1,97 @@
+/* Typography for rendered Markdown content (docs pages) - keeps line length near 65ch and
+   gives code its own visual register instead of inline shadows/pills. */
+.prose {
+  max-width: 42rem;
+  font-size: var(--text-body-lg);
+}
+
+.prose > * + * {
+  margin-top: var(--space-4);
+}
+
+.prose h2,
+.prose h3 {
+  margin-top: var(--space-12);
+  padding-top: var(--space-6);
+  border-top: var(--border-hairline);
+}
+
+.prose h2:first-child,
+.prose h3:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.prose p {
+  color: var(--color-ink);
+}
+
+.prose a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.prose code {
+  font-size: 0.9em;
+  background: var(--color-bg-raised);
+  border: var(--border-hairline);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.35em;
+}
+
+.prose pre {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-bg-raised);
+  border: var(--border-hairline);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  font-size: var(--text-code);
+  line-height: 1.6;
+}
+
+.prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: var(--space-6);
+}
+
+.prose li + li {
+  margin-top: var(--space-2);
+}
+
+.prose blockquote {
+  margin: 0;
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--color-accent);
+  color: var(--color-ink-muted);
+}
+
+.prose table {
+  font-size: var(--text-small);
+  display: block;
+  overflow-x: auto;
+}
+
+.prose th,
+.prose td {
+  text-align: left;
+  padding: var(--space-2) var(--space-4) var(--space-2) 0;
+  border-bottom: var(--border-hairline);
+  vertical-align: top;
+}
+
+.prose th {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-muted);
+}

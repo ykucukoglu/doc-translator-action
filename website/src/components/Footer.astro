@@ -1,0 +1,82 @@
+---
+import { withBase } from '../utils/url';
+
+const layers = [
+  { name: 'DocTranslator.Core', responsibility: "AST parsing/reconstruction, glossary, .doc-ignore, drift detection - no network deps" },
+  { name: 'DocTranslator.LLM', responsibility: 'Multi-provider translation via IChatClient, resilience, batching, chunk repair' },
+  { name: 'DocTranslator.GitHub', responsibility: 'Git diff analysis, translation cache, PR creation via LibGit2Sharp + Octokit' },
+  { name: 'DocTranslator.Cli', responsibility: 'DI wiring, input binding, orchestration pipeline, System.CommandLine entrypoint' },
+];
+---
+
+<footer class="site-footer">
+  <div class="container site-footer__inner">
+    <div>
+      <p class="eyebrow">Solution layout</p>
+      <table class="site-footer__table">
+        <tbody>
+          {
+            layers.map((layer) => (
+              <tr>
+                <td><code>{layer.name}</code></td>
+                <td>{layer.responsibility}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="site-footer__meta">
+      <p>MIT licensed. Pre-v1.0.0.</p>
+      <a href={withBase('/architecture')}>Read the full architecture →</a>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: var(--border-hairline);
+    margin-top: var(--space-24);
+    padding-block: var(--space-12);
+  }
+
+  .site-footer__inner {
+    display: grid;
+    gap: var(--space-8);
+  }
+
+  .site-footer__table {
+    margin-top: var(--space-3);
+    font-size: var(--text-small);
+  }
+
+  .site-footer__table td {
+    padding: var(--space-2) var(--space-6) var(--space-2) 0;
+    border-top: var(--border-hairline);
+    vertical-align: top;
+    color: var(--color-ink-muted);
+  }
+
+  .site-footer__table code {
+    font-family: var(--font-mono);
+    color: var(--color-ink);
+  }
+
+  .site-footer__meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    font-size: var(--text-small);
+    color: var(--color-ink-muted);
+  }
+
+  .site-footer__meta a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .site-footer__meta a:hover {
+    text-decoration: underline;
+  }
+</style>

@@ -1,0 +1,85 @@
+---
+interface Props {
+  /** Raw mermaid diagram source, e.g. a "flowchart LR" block. */
+  diagram: string;
+  caption?: string;
+}
+const { diagram, caption } = Astro.props;
+const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<figure class="mermaid-figure">
+  <div class="mermaid-target" data-diagram-id={id} data-diagram={diagram}></div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .mermaid-figure {
+    margin: var(--space-6) 0;
+    padding: var(--space-4);
+    border: var(--border-hairline);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-raised);
+    overflow-x: auto;
+  }
+
+  .mermaid-target {
+    min-height: 2rem;
+  }
+
+  .mermaid-target :global(svg) {
+    max-width: 100%;
+  }
+
+  figcaption {
+    margin-top: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    color: var(--color-ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+</style>
+
+<script>
+  import mermaid from 'mermaid';
+
+  // The default mermaid theme is exactly the purple/gradient look this site's design
+  // explicitly avoids - always pass an explicit 'base' theme + themeVariables sourced from
+  // this page's own CSS custom properties, so diagrams always match the current light/dark
+  // theme instead of mermaid's own built-in palette.
+  function readThemeVariables() {
+    const styles = getComputedStyle(document.documentElement);
+    const read = (name: string) => styles.getPropertyValue(name).trim();
+    return {
+      background: read('--color-bg-raised'),
+      primaryColor: read('--color-bg'),
+      primaryTextColor: read('--color-ink'),
+      primaryBorderColor: read('--color-accent'),
+      lineColor: read('--color-ink-muted'),
+      secondaryColor: read('--color-bg-raised'),
+      tertiaryColor: read('--color-bg'),
+      fontFamily: read('--font-mono'),
+    };
+  }
+
+  async function renderAll() {
+    mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: readThemeVariables() });
+
+    const targets = document.querySelectorAll<HTMLElement>('.mermaid-target[data-diagram]');
+    for (const target of targets) {
+      const diagram = target.dataset.diagram ?? '';
+      const id = target.dataset.diagramId ?? 'mermaid';
+      try {
+        const { svg } = await mermaid.render(id, diagram);
+        target.innerHTML = svg;
+      } catch (error) {
+        target.textContent = 'Diagram failed to render.';
+        console.error('mermaid render failed', error);
+      }
+    }
+  }
+
+  renderAll();
+  window.addEventListener('themechange', renderAll);
+</script>

@@ -1,0 +1,107 @@
+---
+import Wordmark from './Wordmark.astro';
+import ThemeToggle from './ThemeToggle.astro';
+import { nav } from '../nav.config';
+import { withBase } from '../utils/url';
+
+const currentPath = Astro.url.pathname;
+---
+
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a href={withBase('/')} class="site-header__brand">
+      <Wordmark size={26} />
+      <span>doc-translator-action</span>
+    </a>
+
+    <nav aria-label="Primary" class="site-header__nav">
+      {
+        nav.map((entry) => {
+          const href = withBase(entry.href);
+          const isActive = currentPath.endsWith(entry.href);
+          return (
+            <a href={href} aria-current={isActive ? 'page' : undefined}>
+              {entry.label}
+            </a>
+          );
+        })
+      }
+      <a
+        href="https://github.com/ykucukoglu/doc-translator-action"
+        target="_blank"
+        rel="noreferrer"
+        class="site-header__github"
+      >
+        GitHub ↗
+      </a>
+    </nav>
+
+    <ThemeToggle />
+  </div>
+</header>
+
+<style>
+  .site-header {
+    border-bottom: var(--border-hairline);
+    background: var(--color-bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .site-header__inner {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-4) var(--space-6);
+    padding-block: var(--space-4);
+  }
+
+  .site-header__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-small);
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--color-ink);
+    margin-right: auto;
+  }
+
+  .site-header__nav {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-4) var(--space-6);
+    font-size: var(--text-small);
+    width: 100%;
+    order: 3;
+  }
+
+  @media (min-width: 40rem) {
+    .site-header__nav {
+      width: auto;
+      order: 0;
+    }
+  }
+
+  .site-header__nav a {
+    text-decoration: none;
+    color: var(--color-ink-muted);
+    padding-block: var(--space-1);
+  }
+
+  .site-header__nav a:hover,
+  .site-header__nav a[aria-current='page'] {
+    color: var(--color-ink);
+  }
+
+  .site-header__nav a[aria-current='page'] {
+    border-bottom: 2px solid var(--color-accent);
+  }
+
+  .site-header__github {
+    font-family: var(--font-mono);
+  }
+</style>

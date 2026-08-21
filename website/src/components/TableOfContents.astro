@@ -1,0 +1,59 @@
+---
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+interface Props {
+  headings: Heading[];
+}
+const { headings } = Astro.props;
+const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+{
+  items.length > 0 && (
+    <nav aria-label="On this page" class="toc">
+      <p class="eyebrow">On this page</p>
+      <ul>
+        {items.map((h) => (
+          <li class={h.depth === 3 ? 'toc__sub' : undefined}>
+            <a href={`#${h.slug}`}>{h.text}</a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+<style>
+  .toc {
+    position: sticky;
+    top: calc(var(--space-16) + var(--space-4));
+  }
+
+  .toc ul {
+    list-style: none;
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .toc a {
+    display: block;
+    padding: var(--space-1) 0;
+    text-decoration: none;
+    font-size: var(--text-small);
+    color: var(--color-ink-muted);
+  }
+
+  .toc a:hover {
+    color: var(--color-accent);
+  }
+
+  .toc__sub {
+    padding-left: var(--space-4);
+  }
+</style>
