@@ -20,7 +20,8 @@ public sealed class FakeTranslationService : ILlmTranslationService
         IReadOnlyList<TranslationChunk> chunks,
         string targetLanguageCode,
         GlossaryContext glossary,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string sourceLanguage = "auto")
     {
         IReadOnlyList<TranslatedChunk> result = chunks
             .Select(c => new TranslatedChunk(c.ChunkId, $"[{targetLanguageCode}] {c.SourceText}"))
@@ -35,7 +36,8 @@ public sealed class FakeTranslationService : ILlmTranslationService
         IReadOnlyList<string> missingMarkers,
         string targetLanguageCode,
         GlossaryContext glossary,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        string sourceLanguage = "auto") =>
         // Marker-preserving by construction (same prefix-only trick as TranslateAsync), so the
         // fake provider never actually needs repairing in practice - this exists purely to
         // satisfy the interface.

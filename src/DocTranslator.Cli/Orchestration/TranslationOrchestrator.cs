@@ -132,7 +132,7 @@ public sealed class TranslationOrchestrator(
             foreach (var targetLanguage in languagesForFile)
             {
                 var (translatedChunks, fromCache) = await TranslateWithCacheAsync(
-                    llmService, context, targetLanguage, glossary, changedFile.Path, cancellationToken);
+                    llmService, context, targetLanguage, glossary, changedFile.Path, options.SourceLanguage, cancellationToken);
 
                 foreach (var translated in translatedChunks)
                 {
@@ -155,7 +155,7 @@ public sealed class TranslationOrchestrator(
                     outcome = await astReconstructor.ReconstructAsync(
                         context,
                         translatedChunks,
-                        (chunk, previousText, missing, ct) => llmService.RepairChunkAsync(chunk, previousText, missing, targetLanguage, glossary, ct),
+                        (chunk, previousText, missing, ct) => llmService.RepairChunkAsync(chunk, previousText, missing, targetLanguage, glossary, ct, options.SourceLanguage),
                         provenance with { TargetLanguage = targetLanguage },
                         cancellationToken);
                 }
@@ -201,6 +201,7 @@ public sealed class TranslationOrchestrator(
         string targetLanguage,
         GlossaryContext glossary,
         string sourceRelativePath,
+        string sourceLanguage,
         CancellationToken cancellationToken)
     {
         var result = new List<TranslatedChunk>(context.Chunks.Count);
@@ -223,7 +224,7 @@ public sealed class TranslationOrchestrator(
 
         if (misses.Count > 0)
         {
-            var translated = await llmService.TranslateAsync(misses, targetLanguage, glossary, cancellationToken);
+            var translated = await llmService.TranslateAsync(misses, targetLanguage, glossary, cancellationToken, sourceLanguage);
             var missesById = misses.ToDictionary(c => c.ChunkId);
 
             foreach (var t in translated)

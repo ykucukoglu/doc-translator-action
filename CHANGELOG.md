@@ -26,6 +26,9 @@ Everything below is pending the first tagged release (`v1.0.0`).
 - Fork `pull_request_target` safety: automatically forces a dry run when triggered by that event/fork-PR combination, regardless of `pr-mode`, unless the `allow-fork-pull-request-target: true` action input is set explicitly (deliberately not readable from `config-path`, which can be fork-controlled content in this exact scenario).
 - `cleanup-stale-branches` input (default `true`): deletes this action's own `doc-translator/<sha>` branches once their pull request is closed (merged or declined), so re-runs don't leave an ever-growing pile of dead branches behind. Scoped to that name prefix and to branches with a known closed PR - a branch with no matching PR is left alone.
 - `pr-was-created` output: `"true"` if this run opened a new pull request, `"false"` if it reused an already-open one.
+- `source-language` input: explicitly tells the LLM the source language instead of leaving it unstated (default `auto`, unchanged behavior).
+- `max-batch-tokens` input: exposes the per-batch token budget (previously hardcoded at 4000).
+- `verbose` input: prints the full exception to stderr on failure (previously CLI-flag-only).
 
 ### Fixed
 

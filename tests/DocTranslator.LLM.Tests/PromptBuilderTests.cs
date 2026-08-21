@@ -77,4 +77,20 @@ public class PromptBuilderTests
 
         messages[0].Text.Should().Contain("fr");
     }
+
+    [Fact]
+    public void Build_ExplicitSourceLanguage_AppearsInSystemMessage()
+    {
+        var messages = _sut.Build([Chunk("c1", "hello")], "fr", GlossaryContext.Empty, sourceLanguage: "en");
+
+        messages[0].Text.Should().Contain("from the language with code 'en'");
+    }
+
+    [Fact]
+    public void Build_AutoSourceLanguage_OmitsFromClause()
+    {
+        var messages = _sut.Build([Chunk("c1", "hello")], "fr", GlossaryContext.Empty, sourceLanguage: "auto");
+
+        messages[0].Text.Should().NotContain("from the language");
+    }
 }

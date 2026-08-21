@@ -16,7 +16,8 @@ public interface ILlmTranslationService : IDisposable
         IReadOnlyList<TranslationChunk> chunks,
         string targetLanguageCode,
         GlossaryContext glossary,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string sourceLanguage = "auto");
 
     /// <summary>
     /// Re-translates a single chunk whose previous translation dropped a required placeholder/tag
@@ -31,5 +32,6 @@ public interface ILlmTranslationService : IDisposable
         IReadOnlyList<string> missingMarkers,
         string targetLanguageCode,
         GlossaryContext glossary,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string sourceLanguage = "auto");
 }

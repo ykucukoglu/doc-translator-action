@@ -48,6 +48,12 @@ public sealed class ConfigFile
     [JsonPropertyName("cleanupStaleBranches")]
     public bool? CleanupStaleBranches { get; set; }
 
+    [JsonPropertyName("sourceLanguage")]
+    public string? SourceLanguage { get; set; }
+
+    [JsonPropertyName("maxBatchTokens")]
+    public int? MaxBatchTokens { get; set; }
+
     [JsonPropertyName("llmProvider")]
     public string? LlmProvider { get; set; }
 

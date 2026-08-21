@@ -49,7 +49,8 @@ public sealed class ChatClientLlmTranslationService(
         IReadOnlyList<TranslationChunk> chunks,
         string targetLanguageCode,
         GlossaryContext glossary,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string sourceLanguage = "auto")
     {
         if (chunks.Count == 0)
         {
@@ -64,7 +65,7 @@ public sealed class ChatClientLlmTranslationService(
             await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                return await TranslateBatchWithRetryAsync(batch, targetLanguageCode, glossary, cancellationToken)
+                return await TranslateBatchWithRetryAsync(batch, targetLanguageCode, glossary, sourceLanguage, cancellationToken)
                     .ConfigureAwait(false);
             }
             finally
@@ -81,6 +82,7 @@ public sealed class ChatClientLlmTranslationService(
         IReadOnlyList<TranslationChunk> batch,
         string targetLanguageCode,
         GlossaryContext glossary,
+        string sourceLanguage,
         CancellationToken cancellationToken)
     {
         Exception? lastError = null;
@@ -91,7 +93,7 @@ public sealed class ChatClientLlmTranslationService(
 
             try
             {
-                var messages = promptBuilder.Build(batch, targetLanguageCode, glossary).ToList();
+                var messages = promptBuilder.Build(batch, targetLanguageCode, glossary, sourceLanguage).ToList();
 
                 if (attempt > 1 && lastError is not null)
                 {
@@ -142,9 +144,10 @@ public sealed class ChatClientLlmTranslationService(
         IReadOnlyList<string> missingMarkers,
         string targetLanguageCode,
         GlossaryContext glossary,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string sourceLanguage = "auto")
     {
-        var messages = promptBuilder.Build([chunk], targetLanguageCode, glossary).ToList();
+        var messages = promptBuilder.Build([chunk], targetLanguageCode, glossary, sourceLanguage).ToList();
         messages.Add(new ChatMessage(ChatRole.Assistant, previousTranslatedText));
         messages.Add(new ChatMessage(
             ChatRole.User,

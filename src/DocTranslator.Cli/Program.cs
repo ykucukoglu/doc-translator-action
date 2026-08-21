@@ -33,6 +33,8 @@ var useFakeLlmOption = new Option<bool?>("--use-fake-llm", "Use a trivial marker
 var maxParallelRequestsOption = new Option<int?>("--max-parallel-requests", "Bounds how many LLM batch requests run concurrently per file/language (default 4).");
 var backfillMissingTranslationsOption = new Option<bool?>("--backfill-missing-translations", "Also translate any source file/language pair with no existing output yet, regardless of this run's diff - for a first install or a newly-added target language.");
 var estimateCostOnlyOption = new Option<bool?>("--estimate-cost-only", "Report an estimated input-token count for this run and exit - no LLM call, no git/GitHub access.");
+var sourceLanguageOption = new Option<string?>("--source-language", "Source language code told to the LLM, or 'auto' (default) to leave it unstated.");
+var maxBatchTokensOption = new Option<int?>("--max-batch-tokens", "Approximate token budget per LLM batch request (default 4000).");
 var verboseOption = new Option<bool>("--verbose", () => false, "Verbose console output.");
 
 var root = new RootCommand("doc-translator-action: AST-aware Markdown translation via Markdig + LLM.");
@@ -50,6 +52,8 @@ root.AddOption(useFakeLlmOption);
 root.AddOption(maxParallelRequestsOption);
 root.AddOption(backfillMissingTranslationsOption);
 root.AddOption(estimateCostOnlyOption);
+root.AddOption(sourceLanguageOption);
+root.AddOption(maxBatchTokensOption);
 root.AddOption(verboseOption);
 
 root.SetHandler(async context =>
@@ -70,6 +74,8 @@ root.SetHandler(async context =>
         MaxParallelRequests = context.ParseResult.GetValueForOption(maxParallelRequestsOption),
         BackfillMissingTranslations = context.ParseResult.GetValueForOption(backfillMissingTranslationsOption),
         EstimateCostOnly = context.ParseResult.GetValueForOption(estimateCostOnlyOption),
+        SourceLanguage = context.ParseResult.GetValueForOption(sourceLanguageOption),
+        MaxBatchTokens = context.ParseResult.GetValueForOption(maxBatchTokensOption),
         Verbose = context.ParseResult.GetValueForOption(verboseOption),
     };
 
@@ -108,7 +114,7 @@ static async Task<int> RunAsync(ActionOptionsCliOverrides cliOverrides, Cancella
             services.AddSingleton<IEnvironmentProvider, EnvironmentProvider>();
             services.AddSingleton<IChatClientFactory, ChatClientFactory>();
             services.AddSingleton<IPromptBuilder, PromptBuilder>();
-            services.AddSingleton<IChunkBatcher, ChunkBatcher>();
+            services.AddSingleton<IChunkBatcher>(_ => new ChunkBatcher(options.MaxBatchTokens));
             services.AddSingleton<ILlmResponseValidator, LlmResponseValidator>();
             services.AddSingleton<ILlmProviderFactory, LlmProviderFactory>();
 
@@ -136,7 +142,7 @@ static async Task<int> RunAsync(ActionOptionsCliOverrides cliOverrides, Cancella
     catch (Exception ex)
     {
         Console.Error.WriteLine($"doc-translator-action failed: {ex.Message}");
-        if (cliOverrides.Verbose)
+        if (options.Verbose)
         {
             Console.Error.WriteLine(ex);
         }

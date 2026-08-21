@@ -324,14 +324,15 @@ public sealed class TranslationOrchestratorTests : IDisposable
             IReadOnlyList<TranslationChunk> chunks,
             string targetLanguageCode,
             GlossaryContext glossary,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            string sourceLanguage = "auto")
         {
             foreach (var chunk in chunks)
             {
                 calls.Add(chunk.SourceFilePath);
             }
 
-            return _inner.TranslateAsync(chunks, targetLanguageCode, glossary, cancellationToken);
+            return _inner.TranslateAsync(chunks, targetLanguageCode, glossary, cancellationToken, sourceLanguage);
         }
 
         public Task<TranslatedChunk> RepairChunkAsync(
@@ -340,8 +341,9 @@ public sealed class TranslationOrchestratorTests : IDisposable
             IReadOnlyList<string> missingMarkers,
             string targetLanguageCode,
             GlossaryContext glossary,
-            CancellationToken cancellationToken) =>
-            _inner.RepairChunkAsync(chunk, previousTranslatedText, missingMarkers, targetLanguageCode, glossary, cancellationToken);
+            CancellationToken cancellationToken,
+            string sourceLanguage = "auto") =>
+            _inner.RepairChunkAsync(chunk, previousTranslatedText, missingMarkers, targetLanguageCode, glossary, cancellationToken, sourceLanguage);
     }
 
     /// <summary>Captures the request instead of calling the real GitHub API - no network call.</summary>

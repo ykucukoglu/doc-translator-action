@@ -159,6 +159,32 @@ public sealed class ActionOptionsBinderTests : IDisposable
     }
 
     [Fact]
+    public void Bind_SourceLanguageAndMaxBatchTokens_DefaultToAutoAnd4000()
+    {
+        Set("INPUT_PR-MODE", "false");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.SourceLanguage.Should().Be("auto");
+        options.MaxBatchTokens.Should().Be(4000);
+    }
+
+    [Fact]
+    public void Bind_SourceLanguageAndMaxBatchTokens_AreReadFromInputs()
+    {
+        Set("INPUT_PR-MODE", "false");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+        Set("INPUT_SOURCE-LANGUAGE", "en");
+        Set("INPUT_MAX-BATCH-TOKENS", "2000");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.SourceLanguage.Should().Be("en");
+        options.MaxBatchTokens.Should().Be(2000);
+    }
+
+    [Fact]
     public void Bind_RegularPullRequestEvent_DoesNotForceDryRun()
     {
         Set("GITHUB_EVENT_NAME", "pull_request");

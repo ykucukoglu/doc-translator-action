@@ -122,7 +122,7 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `source-path` | `docs` | Root folder to scan for documentation. |
 | `include-glob` | `**/*.md` | Glob (relative to `source-path`) selecting which files to translate. |
 | `glossary-path` | `.doc-terms.json` | Path to the glossary file - see [Glossary](#glossary). |
-| `config-path` | — | Path to a JSON file supplying any of `targetLanguages`, `sourcePath`, `includeGlob`, `glossaryPath`, `outputPathTemplate`, `baseBranch`, `failOnStaleTranslations`, `backfillMissingTranslations`, `estimateCostOnly`, `maxParallelRequests`, `cleanupStaleBranches`, `llmProvider`, `geminiModel`, `openAiModel`, `claudeModel` - lets advanced setups avoid a large `with:` block. Explicit inputs always win over the config file. (`allow-fork-pull-request-target` is deliberately not supported here - see below.) |
+| `config-path` | — | Path to a JSON file supplying any of `targetLanguages`, `sourcePath`, `includeGlob`, `glossaryPath`, `outputPathTemplate`, `baseBranch`, `failOnStaleTranslations`, `backfillMissingTranslations`, `estimateCostOnly`, `maxParallelRequests`, `cleanupStaleBranches`, `sourceLanguage`, `maxBatchTokens`, `llmProvider`, `geminiModel`, `openAiModel`, `claudeModel` - lets advanced setups avoid a large `with:` block. Explicit inputs always win over the config file. (`allow-fork-pull-request-target` is deliberately not supported here - see below.) |
 | `output-path-template` | `docs/{lang}/{relativePath}` | Supports `{lang}`, `{relativePath}`, `{dir}`, `{filename}`, `{ext}` - see the Quick start snippets above. |
 | `base-branch` | *(auto)* | Base branch to diff against and open the PR into. Defaults to `GITHUB_BASE_REF` on `pull_request` events, or the previous commit on `push`. |
 | `pr-mode` | `true` | When `true`, pushes a branch and opens a PR. When `false`, writes translated files locally only - no `github-token` required. |
@@ -133,6 +133,9 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `allow-fork-pull-request-target` | `false` | See [Security](SECURITY.md#pull_request_target-and-fork-prs) - on a `pull_request_target` run from a fork PR, this action forces a dry run by default; set this to opt back in. |
 | `max-parallel-requests` | `4` | Bounds concurrent LLM batch requests per file/language. |
 | `cleanup-stale-branches` | `true` | Deletes this action's own `doc-translator/<sha>` branches once their PR is closed (merged or declined), so old branches don't pile up. Scoped strictly to that prefix and to branches with a known closed PR. |
+| `source-language` | `auto` | Source language code told to the LLM, or `auto` to leave it unstated and let the model infer it. |
+| `max-batch-tokens` | `4000` | Approximate token budget per LLM batch request (char/4 heuristic). |
+| `verbose` | `false` | Prints the full exception (not just its message) to stderr on failure. |
 
 **Outputs:** `pr-url`, `pr-was-created`, `translated-files-count`, `stale-translations-count`.
 

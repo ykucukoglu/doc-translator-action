@@ -24,6 +24,8 @@ public sealed class ActionOptionsCliOverrides
     public bool? BackfillMissingTranslations { get; init; }
     public bool? EstimateCostOnly { get; init; }
     public int? MaxParallelRequests { get; init; }
+    public string? SourceLanguage { get; init; }
+    public int? MaxBatchTokens { get; init; }
     public bool Verbose { get; init; }
 }
 
@@ -106,6 +108,9 @@ public static class ActionOptionsBinder
             EstimateCostOnly = estimateCostOnly,
             MaxParallelRequests = cli.MaxParallelRequests ?? ParseInt(ReadInput("max-parallel-requests")) ?? config?.MaxParallelRequests ?? 4,
             CleanupStaleBranches = ParseBool(ReadInput("cleanup-stale-branches")) ?? config?.CleanupStaleBranches ?? true,
+            SourceLanguage = cli.SourceLanguage ?? ReadInput("source-language") ?? config?.SourceLanguage ?? "auto",
+            MaxBatchTokens = cli.MaxBatchTokens ?? ParseInt(ReadInput("max-batch-tokens")) ?? config?.MaxBatchTokens ?? 4000,
+            Verbose = cli.Verbose || (ParseBool(ReadInput("verbose")) ?? false),
             RepositoryPath = repositoryPath,
         };
     }

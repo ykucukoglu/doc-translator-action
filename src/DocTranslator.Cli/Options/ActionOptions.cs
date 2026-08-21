@@ -60,5 +60,14 @@ public sealed class ActionOptions
     /// </summary>
     public bool CleanupStaleBranches { get; init; } = true;
 
+    /// <summary>Source language code told to the LLM, or "auto" (default) to leave it unstated and let the model infer it.</summary>
+    public string SourceLanguage { get; init; } = "auto";
+
+    /// <summary>Approximate token budget per LLM batch request (char/4 heuristic). See <c>ChunkBatcher</c>.</summary>
+    public int MaxBatchTokens { get; init; } = 4000;
+
+    /// <summary>Prints the full exception (not just its message) to stderr on failure.</summary>
+    public bool Verbose { get; init; }
+
     public string RepositoryPath { get; init; } = Directory.GetCurrentDirectory();
 }
