@@ -13,6 +13,8 @@ public interface IJobSummaryWriter
         string? pullRequestUrl,
         bool dryRun,
         CancellationToken cancellationToken);
+
+    Task WriteCostEstimateAsync(CostEstimate estimate, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -22,6 +24,25 @@ public interface IJobSummaryWriter
 /// </summary>
 public sealed class JobSummaryWriter(ITokenUsageTracker tokenUsageTracker) : IJobSummaryWriter
 {
+    public async Task WriteCostEstimateAsync(CostEstimate estimate, CancellationToken cancellationToken)
+    {
+        var summaryFile = GetSummaryFileOrNull();
+        if (summaryFile is null)
+        {
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("## doc-translator-action cost estimate").AppendLine();
+        sb.Append("- Files: ").AppendLine(estimate.Files.ToString(CultureInfo.InvariantCulture));
+        sb.Append("- Chunk/language pairs: ").Append(estimate.TotalPairs.ToString(CultureInfo.InvariantCulture))
+          .Append(" (").Append(estimate.CachedPairs.ToString(CultureInfo.InvariantCulture)).AppendLine(" already cached)");
+        sb.Append("- Estimated input tokens: ~").AppendLine(estimate.EstimatedTokens.ToString(CultureInfo.InvariantCulture));
+        sb.AppendLine().AppendLine(CostEstimate.Note);
+
+        await File.AppendAllTextAsync(summaryFile, sb.ToString(), cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task WriteAsync(
         TranslationRunSummary summary,
         int translatedFilesCount,
@@ -29,8 +50,8 @@ public sealed class JobSummaryWriter(ITokenUsageTracker tokenUsageTracker) : IJo
         bool dryRun,
         CancellationToken cancellationToken)
     {
-        var summaryFile = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
-        if (string.IsNullOrWhiteSpace(summaryFile))
+        var summaryFile = GetSummaryFileOrNull();
+        if (summaryFile is null)
         {
             return;
         }
@@ -74,6 +95,12 @@ public sealed class JobSummaryWriter(ITokenUsageTracker tokenUsageTracker) : IJo
         AppendListSection(sb, "Skipped (unexpected reconstruction failure)", summary.Errors);
 
         await File.AppendAllTextAsync(summaryFile, sb.ToString(), cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string? GetSummaryFileOrNull()
+    {
+        var summaryFile = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
+        return string.IsNullOrWhiteSpace(summaryFile) ? null : summaryFile;
     }
 
     private static void AppendListSection(StringBuilder sb, string title, List<string> items)

@@ -6,11 +6,22 @@ namespace DocTranslator.Cli.Logging;
 public interface IConsoleSummaryWriter
 {
     void Write(TranslationRunSummary summary, int translatedFilesCount, string? pullRequestUrl, bool dryRun);
+
+    void WriteCostEstimate(CostEstimate estimate);
 }
 
 /// <summary>Human-readable summary printed at the end of every run, dry-run or not.</summary>
 public sealed class ConsoleSummaryWriter(ITokenUsageTracker tokenUsageTracker) : IConsoleSummaryWriter
 {
+    public void WriteCostEstimate(CostEstimate estimate)
+    {
+        Console.WriteLine("=== doc-translator-action cost estimate ===");
+        Console.WriteLine($"Files: {estimate.Files}");
+        Console.WriteLine($"Chunk/language pairs: {estimate.TotalPairs} ({estimate.CachedPairs} already cached)");
+        Console.WriteLine($"Estimated input tokens for the LLM calls this run would make: ~{estimate.EstimatedTokens}");
+        Console.WriteLine(CostEstimate.Note);
+    }
+
     public void Write(TranslationRunSummary summary, int translatedFilesCount, string? pullRequestUrl, bool dryRun)
     {
         Console.WriteLine();

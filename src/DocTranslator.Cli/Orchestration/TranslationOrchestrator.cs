@@ -46,9 +46,16 @@ public sealed class TranslationOrchestrator(
         var changedFiles = diffAnalyzer.GetChangedFiles(options.RepositoryPath, options.BaseBranch, fullGlob, docIgnoreFilter);
         var workItems = changedFiles.Select(f => new FileWorkItem(f, options.TargetLanguages)).ToList();
 
+        // Shared by backfill (finds files/languages with no translation yet) and drift detection
+        // (checks every existing translation for staleness) - computed once up front and reused by
+        // whichever of those actually run this call, instead of each independently re-walking the
+        // source tree. Skipped entirely when neither will run (estimate-only with backfill off).
+        var needsFullSourceScan = options.BackfillMissingTranslations || !options.EstimateCostOnly;
+        var allSourceFiles = needsFullSourceScan ? ScanAllSourceFiles(options, docIgnoreFilter).ToList() : [];
+
         if (options.BackfillMissingTranslations)
         {
-            AddBackfillWorkItems(options, docIgnoreFilter, changedFiles, workItems);
+            AddBackfillWorkItems(options, allSourceFiles, changedFiles, workItems);
         }
 
         if (options.EstimateCostOnly)
@@ -69,7 +76,7 @@ public sealed class TranslationOrchestrator(
             await TranslateChangedFilesAsync(options, glossary, workItems, summary, filesToCommit, cancellationToken);
         }
 
-        CollectDriftWarnings(options, docIgnoreFilter, summary);
+        CollectDriftWarnings(options, allSourceFiles, summary);
 
         var pullRequestUrl = await PublishAsync(options, summary, filesToCommit, cancellationToken);
 
@@ -110,7 +117,7 @@ public sealed class TranslationOrchestrator(
             // its own output as new source and re-translate already-translated text. Every
             // generated file starts with this provenance header (see ToHeaderComment), so it's a
             // reliable, template-agnostic "we wrote this" signal to skip on regardless of naming.
-            if (markdown.StartsWith(TranslationProvenance.HeaderPrefix, StringComparison.Ordinal))
+            if (IsGeneratedOutput(markdown))
             {
                 continue;
             }
@@ -266,13 +273,13 @@ public sealed class TranslationOrchestrator(
     /// </summary>
     private void AddBackfillWorkItems(
         ActionOptions options,
-        IDocIgnoreFilter docIgnoreFilter,
+        IReadOnlyList<string> allSourceFiles,
         IReadOnlyList<ChangedFile> changedFiles,
         List<FileWorkItem> workItems)
     {
         var changedPaths = changedFiles.Select(f => f.Path).ToHashSet(StringComparer.Ordinal);
 
-        foreach (var relativeSourcePath in ScanAllSourceFiles(options, docIgnoreFilter))
+        foreach (var relativeSourcePath in allSourceFiles)
         {
             if (changedPaths.Contains(relativeSourcePath))
             {
@@ -281,7 +288,7 @@ public sealed class TranslationOrchestrator(
 
             var absoluteSourcePath = Path.Combine(options.RepositoryPath, relativeSourcePath);
             var firstLine = File.ReadLines(absoluteSourcePath).FirstOrDefault() ?? string.Empty;
-            if (firstLine.StartsWith(TranslationProvenance.HeaderPrefix, StringComparison.Ordinal))
+            if (IsGeneratedOutput(firstLine))
             {
                 continue; // this file is itself a previously-generated translation, not a source
             }
@@ -313,7 +320,7 @@ public sealed class TranslationOrchestrator(
         {
             var absoluteSourcePath = Path.Combine(options.RepositoryPath, file.Path);
             var markdown = await File.ReadAllTextAsync(absoluteSourcePath, cancellationToken);
-            if (markdown.StartsWith(TranslationProvenance.HeaderPrefix, StringComparison.Ordinal))
+            if (IsGeneratedOutput(markdown))
             {
                 continue;
             }
@@ -337,38 +344,22 @@ public sealed class TranslationOrchestrator(
             }
         }
 
-        var note = "Rough char/4 heuristic; completion/output tokens are typically similar in magnitude to input for a translation task. No LLM was called.";
-
-        Console.WriteLine("=== doc-translator-action cost estimate ===");
-        Console.WriteLine($"Files: {workItems.Count}");
-        Console.WriteLine($"Chunk/language pairs: {totalPairs} ({cachedPairs} already cached)");
-        Console.WriteLine($"Estimated input tokens for the LLM calls this run would make: ~{estimatedTokens}");
-        Console.WriteLine(note);
-
-        var summaryFile = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
-        if (!string.IsNullOrWhiteSpace(summaryFile))
-        {
-            var markdownLines = new[]
-            {
-                "## doc-translator-action cost estimate",
-                $"- Files: {workItems.Count}",
-                $"- Chunk/language pairs: {totalPairs} ({cachedPairs} already cached)",
-                $"- Estimated input tokens: ~{estimatedTokens}",
-                "",
-                note,
-            };
-            await File.AppendAllLinesAsync(summaryFile, markdownLines, cancellationToken);
-        }
+        var estimate = new CostEstimate(workItems.Count, totalPairs, cachedPairs, estimatedTokens);
+        consoleSummaryWriter.WriteCostEstimate(estimate);
+        await jobSummaryWriter.WriteCostEstimateAsync(estimate, cancellationToken);
     }
+
+    /// <summary>Every generated file starts with this header (see <see cref="TranslationProvenance.ToHeaderComment"/>) - a reliable, output-path-template-agnostic "we wrote this" signal, used everywhere this orchestrator needs to tell a real source apart from its own prior output.</summary>
+    private static bool IsGeneratedOutput(string text) => text.StartsWith(TranslationProvenance.HeaderPrefix, StringComparison.Ordinal);
 
     /// <summary>
     /// Scans every source file matching the glob (not just this run's changed files) and flags
     /// any existing translated output whose provenance header no longer matches its source's
     /// current hash - catches translations that fell out of sync from an earlier failed/skipped run.
     /// </summary>
-    private void CollectDriftWarnings(ActionOptions options, IDocIgnoreFilter docIgnoreFilter, TranslationRunSummary summary)
+    private void CollectDriftWarnings(ActionOptions options, IReadOnlyList<string> allSourceFiles, TranslationRunSummary summary)
     {
-        foreach (var relativeSourcePath in ScanAllSourceFiles(options, docIgnoreFilter))
+        foreach (var relativeSourcePath in allSourceFiles)
         {
             var absoluteSourcePath = Path.Combine(options.RepositoryPath, relativeSourcePath);
 
