@@ -59,7 +59,13 @@ public static class ActionOptionsBinder
         // secret-exfiltration pattern GitHub's own docs warn about. Force dry-run regardless of
         // what pr-mode/dry-run resolved to, unless the caller explicitly accepts the risk (e.g.
         // because they've already gated this job behind a manual approval).
-        var allowForkPullRequestTarget = ParseBool(ReadInput("allow-fork-pull-request-target")) ?? config?.AllowForkPullRequestTarget ?? false;
+        //
+        // Deliberately NOT read from config-path: that file is loaded from the job's working
+        // directory, which under pull_request_target with a fork-head checkout (the only way this
+        // action would have anything to translate in that scenario) is the fork's own content.
+        // Honoring the flag from there would let a fork PR disable the exact safety net meant to
+        // stop it from using the base repo's secrets against itself.
+        var allowForkPullRequestTarget = ParseBool(ReadInput("allow-fork-pull-request-target")) ?? false;
         if (!dryRun && !allowForkPullRequestTarget && IsForkPullRequestTarget())
         {
             Console.WriteLine("::warning::pull_request_target with a fork PR detected - forcing dry-run to avoid using repository secrets on untrusted content. Set allow-fork-pull-request-target: true if this is intentional.");

@@ -105,6 +105,24 @@ public sealed class ActionOptionsBinderTests : IDisposable
     }
 
     [Fact]
+    public void Bind_ForkPullRequestTarget_ConfigPathCannotSetTheAllowFlag()
+    {
+        // config-path is read from the job's working directory, which under pull_request_target
+        // with a fork-head checkout can be the fork PR's own content - honoring the override from
+        // there would let a malicious fork PR disable its own safety net. Only the real action
+        // input may set it (see Bind_ForkPullRequestTargetWithAllowFlag_RespectsRequestedPrMode).
+        Set("GITHUB_EVENT_NAME", "pull_request_target");
+        Set("GITHUB_EVENT_PATH", WriteEventPayload(fork: true));
+        Set("INPUT_PR-MODE", "true");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+        Set("INPUT_CONFIG-PATH", WriteConfigFile("""{"allowForkPullRequestTarget": true}"""));
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.DryRun.Should().BeTrue();
+    }
+
+    [Fact]
     public void Bind_SameRepoPullRequestTarget_DoesNotForceDryRun()
     {
         Set("GITHUB_EVENT_NAME", "pull_request_target");
@@ -135,6 +153,14 @@ public sealed class ActionOptionsBinderTests : IDisposable
         var path = Path.Combine(Path.GetTempPath(), $"doc-translator-event-{Guid.NewGuid():N}.json");
         var forkValue = fork ? "true" : "false";
         File.WriteAllText(path, "{\"pull_request\":{\"head\":{\"repo\":{\"fork\":" + forkValue + "}}}}");
+        _tempFiles.Add(path);
+        return path;
+    }
+
+    private string WriteConfigFile(string json)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"doc-translator-config-{Guid.NewGuid():N}.json");
+        File.WriteAllText(path, json);
         _tempFiles.Add(path);
         return path;
     }

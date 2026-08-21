@@ -20,7 +20,9 @@ You should receive an acknowledgment within a few days. There's no bug-bounty pr
 
 ## `pull_request_target` and fork PRs
 
-If your workflow uses `pull_request_target` (rather than `pull_request`), the job runs with your repository's secrets and `GITHUB_TOKEN` even when the triggering PR is from an untrusted fork - a known pattern for secret exfiltration if the job then acts on that PR's content. This action detects that specific combination (a `pull_request_target` run where the PR head repository is a fork) and forces a dry run - no push, no PR, no use of `github-token` - regardless of the `pr-mode` you configured. Set `allow-fork-pull-request-target: true` only if you've deliberately gated the job (e.g. behind a required-reviewer environment) and understand the risk.
+If your workflow uses `pull_request_target` (rather than `pull_request`), the job runs with your repository's secrets and `GITHUB_TOKEN` even when the triggering PR is from an untrusted fork - a known pattern for secret exfiltration if the job then acts on that PR's content. This action detects that specific combination (a `pull_request_target` run where the PR head repository is a fork) and forces a dry run - no push, no PR, no use of `github-token` - regardless of the `pr-mode` you configured. Set `allow-fork-pull-request-target: true` as a literal action input only if you've deliberately gated the job (e.g. behind a required-reviewer environment) and understand the risk.
+
+This override is intentionally **not** readable from `config-path`. That file is read from the job's working directory - if your workflow checks out the fork PR's head commit (the only way this action would have anything of the PR's to translate under `pull_request_target`), a config file at your configured path is the fork author's own content. Honoring the override from there would let a malicious fork PR disable its own safety net.
 
 ## Supported versions
 

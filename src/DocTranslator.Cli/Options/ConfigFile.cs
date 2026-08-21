@@ -37,8 +37,10 @@ public sealed class ConfigFile
     [JsonPropertyName("estimateCostOnly")]
     public bool? EstimateCostOnly { get; set; }
 
-    [JsonPropertyName("allowForkPullRequestTarget")]
-    public bool? AllowForkPullRequestTarget { get; set; }
+    // Deliberately no allowForkPullRequestTarget field here - see ActionOptionsBinder.cs. That
+    // safety-net override is only ever honored from the real action input, never from this file,
+    // since the file is read from the job's working directory, which under pull_request_target
+    // with a fork-head checkout is the fork's own (untrusted) content.
 
     [JsonPropertyName("maxParallelRequests")]
     public int? MaxParallelRequests { get; set; }
