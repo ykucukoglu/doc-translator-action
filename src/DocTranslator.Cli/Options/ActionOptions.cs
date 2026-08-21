@@ -35,6 +35,15 @@ public sealed class ActionOptions
 
     public bool FailOnStaleTranslations { get; init; }
 
+    /// <summary>
+    /// When true, also translates any source file/language pair with no existing output yet,
+    /// regardless of whether that file changed in this run's diff. Off by default: the diff-only
+    /// pipeline never picks up a repository's pre-existing docs on first install (nothing in them
+    /// "changed"), so this is the opt-in escape hatch for that first run, or for backfilling a
+    /// newly-added target language.
+    /// </summary>
+    public bool BackfillMissingTranslations { get; init; }
+
     /// <summary>Bounds how many LLM batch requests run concurrently (per file/language). See <c>SemaphoreSlim</c> usage in ChatClientLlmTranslationService.</summary>
     public int MaxParallelRequests { get; init; } = 4;
 

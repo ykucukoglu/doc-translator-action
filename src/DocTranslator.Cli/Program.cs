@@ -31,6 +31,7 @@ var prModeOption = new Option<bool?>("--pr-mode", "When false, behaves like --dr
 var dryRunOption = new Option<bool?>("--dry-run", "Skip git push/PR - write translated files locally only. Overrides --pr-mode.");
 var useFakeLlmOption = new Option<bool?>("--use-fake-llm", "Use a trivial marker-wrapping fake translator instead of a real LLM provider.");
 var maxParallelRequestsOption = new Option<int?>("--max-parallel-requests", "Bounds how many LLM batch requests run concurrently per file/language (default 4).");
+var backfillMissingTranslationsOption = new Option<bool?>("--backfill-missing-translations", "Also translate any source file/language pair with no existing output yet, regardless of this run's diff - for a first install or a newly-added target language.");
 var verboseOption = new Option<bool>("--verbose", () => false, "Verbose console output.");
 
 var root = new RootCommand("doc-translator-action: AST-aware Markdown translation via Markdig + LLM.");
@@ -46,6 +47,7 @@ root.AddOption(prModeOption);
 root.AddOption(dryRunOption);
 root.AddOption(useFakeLlmOption);
 root.AddOption(maxParallelRequestsOption);
+root.AddOption(backfillMissingTranslationsOption);
 root.AddOption(verboseOption);
 
 root.SetHandler(async context =>
@@ -64,6 +66,7 @@ root.SetHandler(async context =>
         DryRun = context.ParseResult.GetValueForOption(dryRunOption),
         UseFakeLlm = context.ParseResult.GetValueForOption(useFakeLlmOption),
         MaxParallelRequests = context.ParseResult.GetValueForOption(maxParallelRequestsOption),
+        BackfillMissingTranslations = context.ParseResult.GetValueForOption(backfillMissingTranslationsOption),
         Verbose = context.ParseResult.GetValueForOption(verboseOption),
     };
 

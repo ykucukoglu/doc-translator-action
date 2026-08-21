@@ -41,15 +41,25 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
+      # Persists the content-hash translation cache across runs - without this, every run starts
+      # from an empty cache and re-translates unrelated unchanged chunks needlessly.
+      - uses: actions/cache@v4
+        with:
+          path: .doc-translator-cache
+          key: doc-translator-cache-${{ github.run_id }}
+          restore-keys: |
+            doc-translator-cache-
       - uses: ykucukoglu/doc-translator-action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
           target-languages: tr,de,fr
 ```
+
+Adding this to a repository with pre-existing docs? Nothing in them "changed" in any one commit, so the diff-only pipeline above won't pick them up on its own - add `backfill-missing-translations: true` for that first run (or after adding a new target language) to translate anything with no output yet, regardless of diff.
 
 ### Docusaurus
 
@@ -110,12 +120,13 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `source-path` | `docs` | Root folder to scan for documentation. |
 | `include-glob` | `**/*.md` | Glob (relative to `source-path`) selecting which files to translate. |
 | `glossary-path` | `.doc-terms.json` | Path to the glossary file - see [Glossary](#glossary). |
-| `config-path` | — | Path to a JSON file supplying any of `sourcePath`, `includeGlob`, `outputPathTemplate`, `baseBranch`, `failOnStaleTranslations`, `maxParallelRequests`, `llmProvider`, `geminiModel`, `openAiModel`, `claudeModel` - lets advanced setups avoid a large `with:` block. Explicit inputs always win over the config file. |
+| `config-path` | — | Path to a JSON file supplying any of `targetLanguages`, `sourcePath`, `includeGlob`, `glossaryPath`, `outputPathTemplate`, `baseBranch`, `failOnStaleTranslations`, `backfillMissingTranslations`, `maxParallelRequests`, `llmProvider`, `geminiModel`, `openAiModel`, `claudeModel` - lets advanced setups avoid a large `with:` block. Explicit inputs always win over the config file. |
 | `output-path-template` | `docs/{lang}/{relativePath}` | Supports `{lang}`, `{relativePath}`, `{dir}`, `{filename}`, `{ext}` - see the Quick start snippets above. |
 | `base-branch` | *(auto)* | Base branch to diff against and open the PR into. Defaults to `GITHUB_BASE_REF` on `pull_request` events, or the previous commit on `push`. |
 | `pr-mode` | `true` | When `true`, pushes a branch and opens a PR. When `false`, writes translated files locally only - no `github-token` required. |
 | `dry-run` | — | Explicit override for `pr-mode`; wins if both are set. |
 | `fail-on-stale-translations` | `false` | Exit non-zero if any existing translated file is out of sync with its current source. |
+| `backfill-missing-translations` | `false` | Also translates any source file/language pair with no output yet, regardless of this run's diff. The diff-only pipeline never picks up pre-existing docs on its own - use this on a first install, or after adding a new target language. |
 | `max-parallel-requests` | `4` | Bounds concurrent LLM batch requests per file/language. |
 
 **Outputs:** `pr-url`, `translated-files-count`, `stale-translations-count`.

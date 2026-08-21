@@ -43,16 +43,23 @@ public sealed class TranslationOrchestrator(
         var fullGlob = CombineGlob(options.SourcePath, options.IncludeGlob);
 
         var changedFiles = diffAnalyzer.GetChangedFiles(options.RepositoryPath, options.BaseBranch, fullGlob, docIgnoreFilter);
+        var workItems = changedFiles.Select(f => new FileWorkItem(f, options.TargetLanguages)).ToList();
+
+        if (options.BackfillMissingTranslations)
+        {
+            AddBackfillWorkItems(options, docIgnoreFilter, changedFiles, workItems);
+        }
+
         var summary = new TranslationRunSummary();
         var filesToCommit = new Dictionary<string, string>();
 
-        if (changedFiles.Count == 0)
+        if (workItems.Count == 0)
         {
             Console.WriteLine("No matching documentation files changed - nothing to translate.");
         }
         else
         {
-            await TranslateChangedFilesAsync(options, glossary, changedFiles, summary, filesToCommit, cancellationToken);
+            await TranslateChangedFilesAsync(options, glossary, workItems, summary, filesToCommit, cancellationToken);
         }
 
         CollectDriftWarnings(options, docIgnoreFilter, summary);
@@ -66,10 +73,17 @@ public sealed class TranslationOrchestrator(
         return options.FailOnStaleTranslations && summary.DriftWarnings.Count > 0 ? 1 : 0;
     }
 
+    /// <summary>One source file plus the specific target languages to translate it into - normally
+    /// every configured language, but a backfill-only work item (see <see cref="AddBackfillWorkItems"/>)
+    /// carries just the languages that don't have an output yet, so a file that's already fully
+    /// translated in every language except one newly-added target doesn't get needlessly
+    /// re-translated into the languages it already has.</summary>
+    private readonly record struct FileWorkItem(ChangedFile File, IReadOnlyList<string> Languages);
+
     private async Task TranslateChangedFilesAsync(
         ActionOptions options,
         GlossaryContext glossary,
-        IReadOnlyList<ChangedFile> changedFiles,
+        IReadOnlyList<FileWorkItem> workItems,
         TranslationRunSummary summary,
         Dictionary<string, string> filesToCommit,
         CancellationToken cancellationToken)
@@ -77,7 +91,7 @@ public sealed class TranslationOrchestrator(
         using var llmService = llmProviderFactory.Create();
         var languageStats = options.TargetLanguages.ToDictionary(lang => lang, _ => (Translated: 0, Cached: 0));
 
-        foreach (var changedFile in changedFiles)
+        foreach (var (changedFile, languagesForFile) in workItems)
         {
             var absoluteSourcePath = Path.Combine(options.RepositoryPath, changedFile.Path);
             var markdown = await File.ReadAllTextAsync(absoluteSourcePath, cancellationToken);
@@ -100,7 +114,7 @@ public sealed class TranslationOrchestrator(
             var sourceTextByChunkId = context.Chunks.ToDictionary(c => c.ChunkId, c => c.SourceText);
             var provenance = new TranslationProvenance(driftDetector.HashFile(absoluteSourcePath), changedFile.Path, string.Empty, DateTimeOffset.UtcNow);
 
-            foreach (var targetLanguage in options.TargetLanguages)
+            foreach (var targetLanguage in languagesForFile)
             {
                 var (translatedChunks, fromCache) = await TranslateWithCacheAsync(
                     llmService, context, targetLanguage, glossary, changedFile.Path, cancellationToken);
@@ -208,30 +222,86 @@ public sealed class TranslationOrchestrator(
     }
 
     /// <summary>
+    /// Every source file matching source-path/include-glob, minus .doc-ignore exclusions - the
+    /// full document set, independent of this run's git diff. Shared by drift detection (checks
+    /// every existing translation for staleness, not just changed files) and backfill (finds
+    /// files/languages with no translation at all yet).
+    /// </summary>
+    private static IEnumerable<string> ScanAllSourceFiles(ActionOptions options, IDocIgnoreFilter docIgnoreFilter)
+    {
+        var sourceRoot = Path.Combine(options.RepositoryPath, options.SourcePath);
+        if (!Directory.Exists(sourceRoot))
+        {
+            yield break;
+        }
+
+        var matcher = new Matcher();
+        matcher.AddInclude(options.IncludeGlob);
+
+        foreach (var absoluteSourcePath in matcher.GetResultsInFullPath(sourceRoot))
+        {
+            var relativeSourcePath = Path.GetRelativePath(options.RepositoryPath, absoluteSourcePath).Replace('\\', '/');
+
+            if (!docIgnoreFilter.IsIgnored(relativeSourcePath))
+            {
+                yield return relativeSourcePath;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Diff-only translation never picks up a repository's pre-existing docs - nothing in them
+    /// "changed" on the run that first adds this action, or on the run after a new target
+    /// language is added. When backfill-missing-translations is on, this adds one work item per
+    /// (file, missing languages) pair found with no existing output yet, skipping any file this
+    /// run's diff already covers (which already gets every configured language) and any file
+    /// that is itself a prior translation output (same provenance-header check as the main loop).
+    /// </summary>
+    private void AddBackfillWorkItems(
+        ActionOptions options,
+        IDocIgnoreFilter docIgnoreFilter,
+        IReadOnlyList<ChangedFile> changedFiles,
+        List<FileWorkItem> workItems)
+    {
+        var changedPaths = changedFiles.Select(f => f.Path).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var relativeSourcePath in ScanAllSourceFiles(options, docIgnoreFilter))
+        {
+            if (changedPaths.Contains(relativeSourcePath))
+            {
+                continue; // already a full work item (every language) from the diff
+            }
+
+            var absoluteSourcePath = Path.Combine(options.RepositoryPath, relativeSourcePath);
+            var firstLine = File.ReadLines(absoluteSourcePath).FirstOrDefault() ?? string.Empty;
+            if (firstLine.StartsWith(TranslationProvenance.HeaderPrefix, StringComparison.Ordinal))
+            {
+                continue; // this file is itself a previously-generated translation, not a source
+            }
+
+            var missingLanguages = options.TargetLanguages
+                .Where(lang => !File.Exists(Path.Combine(
+                    options.RepositoryPath,
+                    outputPathResolver.Resolve(options.OutputPathTemplate, lang, ToSourceRelativePath(relativeSourcePath, options.SourcePath)))))
+                .ToList();
+
+            if (missingLanguages.Count > 0)
+            {
+                workItems.Add(new FileWorkItem(new ChangedFile(relativeSourcePath, FileChangeKind.Modified), missingLanguages));
+            }
+        }
+    }
+
+    /// <summary>
     /// Scans every source file matching the glob (not just this run's changed files) and flags
     /// any existing translated output whose provenance header no longer matches its source's
     /// current hash - catches translations that fell out of sync from an earlier failed/skipped run.
     /// </summary>
     private void CollectDriftWarnings(ActionOptions options, IDocIgnoreFilter docIgnoreFilter, TranslationRunSummary summary)
     {
-        var sourceRoot = Path.Combine(options.RepositoryPath, options.SourcePath);
-        if (!Directory.Exists(sourceRoot))
+        foreach (var relativeSourcePath in ScanAllSourceFiles(options, docIgnoreFilter))
         {
-            return;
-        }
-
-        var matcher = new Matcher();
-        matcher.AddInclude(options.IncludeGlob);
-        var matches = matcher.GetResultsInFullPath(sourceRoot);
-
-        foreach (var absoluteSourcePath in matches)
-        {
-            var relativeSourcePath = Path.GetRelativePath(options.RepositoryPath, absoluteSourcePath).Replace('\\', '/');
-
-            if (docIgnoreFilter.IsIgnored(relativeSourcePath))
-            {
-                continue;
-            }
+            var absoluteSourcePath = Path.Combine(options.RepositoryPath, relativeSourcePath);
 
             foreach (var targetLanguage in options.TargetLanguages)
             {

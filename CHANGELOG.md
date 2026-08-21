@@ -19,5 +19,11 @@ Everything below is pending the first tagged release (`v1.0.0`).
 - GitHub Actions observability: Job Summary report, `::group::`/`::warning::`/`::error::` log annotations, PR summary comment, token usage tracking.
 - Resilience: Polly v8 retry with exponential backoff (plus `Retry-After`-aware delay where the provider exposes it) for transient HTTP failures, independent of the semantic retry that repairs malformed LLM responses; `max-parallel-requests` concurrency bound.
 - `config-path` optional JSON config file for repo-wide defaults, with explicit inputs always taking priority.
+- `backfill-missing-translations` input: translates any source file/language pair with no output yet regardless of this run's diff, for a first install against pre-existing docs or after adding a new target language.
+- `DocTranslator.Cli.Tests`: end-to-end orchestrator tests against a real throwaway git repo, with only the LLM call and the GitHub PR API faked.
+
+### Fixed
+
+- The content-hash translation cache is now persisted across CI runs via `actions/cache` in the example workflows - previously it was rebuilt from scratch and discarded every run, so it never produced any real cross-run savings.
 
 [Unreleased]: https://github.com/ykucukoglu/doc-translator-action/commits/main

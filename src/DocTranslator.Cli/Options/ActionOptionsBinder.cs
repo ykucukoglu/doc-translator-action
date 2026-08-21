@@ -21,6 +21,7 @@ public sealed class ActionOptionsCliOverrides
     public bool? PrMode { get; init; }
     public bool? DryRun { get; init; }
     public bool? UseFakeLlm { get; init; }
+    public bool? BackfillMissingTranslations { get; init; }
     public int? MaxParallelRequests { get; init; }
     public bool Verbose { get; init; }
 }
@@ -79,6 +80,7 @@ public static class ActionOptionsBinder
             BaseBranch = cli.BaseBranch ?? ReadInput("base-branch") ?? config?.BaseBranch ?? NullIfEmpty(Environment.GetEnvironmentVariable("GITHUB_BASE_REF")),
             DryRun = dryRun,
             FailOnStaleTranslations = ParseBool(ReadInput("fail-on-stale-translations")) ?? config?.FailOnStaleTranslations ?? false,
+            BackfillMissingTranslations = cli.BackfillMissingTranslations ?? ParseBool(ReadInput("backfill-missing-translations")) ?? config?.BackfillMissingTranslations ?? false,
             MaxParallelRequests = cli.MaxParallelRequests ?? ParseInt(ReadInput("max-parallel-requests")) ?? config?.MaxParallelRequests ?? 4,
             RepositoryPath = repositoryPath,
         };

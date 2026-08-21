@@ -31,6 +31,9 @@ public sealed class ConfigFile
     [JsonPropertyName("failOnStaleTranslations")]
     public bool? FailOnStaleTranslations { get; set; }
 
+    [JsonPropertyName("backfillMissingTranslations")]
+    public bool? BackfillMissingTranslations { get; set; }
+
     [JsonPropertyName("maxParallelRequests")]
     public int? MaxParallelRequests { get; set; }
 

@@ -109,6 +109,64 @@ public sealed class TranslationOrchestratorTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_BackfillOff_PreExistingUntouchedDocsAreNeverTranslated()
+    {
+        // The scenario a first-time adopter hits: they add the action to a repository whose docs/
+        // already existed for a while and never change again in this run's diff. Without opting
+        // in to backfill, that pre-existing content should never get auto-translated.
+        WriteAndCommit("docs/guide.md", "# Hello\n\nSome text.\n", "base");
+        WriteAndCommit("README.md", "unrelated change", "unrelated");
+
+        var orchestrator = BuildOrchestrator(out var translateCalls, out _);
+        var options = BuildOptions(targetLanguages: ["tr"], backfillMissingTranslations: false);
+
+        await orchestrator.RunAsync(options, CancellationToken.None);
+
+        translateCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RunAsync_BackfillOn_TranslatesPreExistingDocsWithNoOutputYet()
+    {
+        WriteAndCommit("docs/guide.md", "# Hello\n\nSome text.\n", "base");
+        WriteAndCommit("README.md", "unrelated change", "unrelated");
+
+        var orchestrator = BuildOrchestrator(out var translateCalls, out _);
+        var options = BuildOptions(targetLanguages: ["tr"], backfillMissingTranslations: true);
+
+        await orchestrator.RunAsync(options, CancellationToken.None);
+
+        translateCalls.Distinct().Should().Equal(["docs/guide.md"]);
+        File.Exists(Path.Combine(_repoRoot, "docs", "tr", "guide.md")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RunAsync_BackfillOn_OnlyFillsMissingLanguagesNotAlreadyTranslatedOnes()
+    {
+        // Simulates adding a new target language later: docs/guide.md already has a "de"
+        // translation (with its provenance header), and the user now also wants "tr". Backfill
+        // should translate only the missing "tr" output, not re-translate "de" too. A second,
+        // unrelated commit is required so the diff analyzer doesn't treat this repo's very first
+        // commit as "everything added" (a null base tree diffs every file as new).
+        WriteAndCommit("docs/guide.md", "# Hello\n\nSome text.\n", "base");
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "docs", "de"));
+        File.WriteAllText(
+            Path.Combine(_repoRoot, "docs", "de", "guide.md"),
+            "<!-- doc-translator: source-hash=abc; source-path=docs/guide.md; target-lang=de; generated=2026-01-01T00:00:00Z -->\n# Hallo\n");
+        WriteAndCommit("README.md", "unrelated change", "unrelated");
+
+        var orchestrator = BuildOrchestrator(out var translateCalls, out _);
+        var options = BuildOptions(targetLanguages: ["tr", "de"], backfillMissingTranslations: true);
+
+        await orchestrator.RunAsync(options, CancellationToken.None);
+
+        translateCalls.Distinct().Should().Equal(["docs/guide.md"]);
+        File.Exists(Path.Combine(_repoRoot, "docs", "tr", "guide.md")).Should().BeTrue();
+        // The existing "de" output is untouched - still exactly what was seeded above.
+        File.ReadAllText(Path.Combine(_repoRoot, "docs", "de", "guide.md")).Should().Contain("# Hallo");
+    }
+
+    [Fact]
     public async Task RunAsync_NoChangedFiles_ReturnsZeroAndSkipsTranslation()
     {
         WriteAndCommit("README.md", "hello", "base");
@@ -189,7 +247,8 @@ public sealed class TranslationOrchestratorTests : IDisposable
     private ActionOptions BuildOptions(
         IReadOnlyList<string> targetLanguages,
         bool dryRun = true,
-        string? baseBranch = null) =>
+        string? baseBranch = null,
+        bool backfillMissingTranslations = false) =>
         new()
         {
             GitHubToken = "dummy",
@@ -199,6 +258,7 @@ public sealed class TranslationOrchestratorTests : IDisposable
             DryRun = dryRun,
             BaseBranch = baseBranch,
             GlossaryPath = Path.Combine(_repoRoot, ".doc-terms.json"),
+            BackfillMissingTranslations = backfillMissingTranslations,
         };
 
     /// <summary>Records which source files were sent for translation, per <see cref="FakeTranslationService"/>-style behavior - no network call.</summary>
