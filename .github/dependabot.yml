@@ -18,6 +18,13 @@ updates:
       # Pinned to this exact beta build deliberately (API churns across betas) - any bump here,
       # including a minor/patch one, needs a deliberate migration pass, not an automated PR.
       - dependency-name: "System.CommandLine"
+      # OpenAI must stay within whatever range Microsoft.Extensions.AI.OpenAI's own nuspec
+      # declares (currently [2.12.0, 2.13.0)) - a Dependabot PR bumped this to 2.13.0 once
+      # already, which built with only a NU1608 warning but was outside that declared range.
+      # Only patch updates within 2.12.x are safe to accept automatically; a minor/major bump
+      # needs to be checked against Microsoft.Extensions.AI.OpenAI's dependency first.
+      - dependency-name: "OpenAI"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

@@ -28,5 +28,7 @@ Everything below is pending the first tagged release (`v1.0.0`).
 ### Fixed
 
 - The content-hash translation cache is now persisted across CI runs via `actions/cache` in the example workflows - previously it was rebuilt from scratch and discarded every run, so it never produced any real cross-run savings.
+- `allow-fork-pull-request-target` could no longer be set from `config-path` - that file is read from the job's working directory, which under `pull_request_target` with a fork-head checkout is the fork PR's own content, so honoring it from there defeated the safety net it was meant to enforce.
+- The `OpenAI` package was pinned back to `2.12.0` - a Dependabot PR had bumped it to `2.13.0`, which builds with only a `NU1608` warning but is outside the `[2.12.0, 2.13.0)` range `Microsoft.Extensions.AI.OpenAI` actually declares support for.
 
 [Unreleased]: https://github.com/ykucukoglu/doc-translator-action/commits/main
