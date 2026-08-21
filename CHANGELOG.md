@@ -32,4 +32,9 @@ Everything below is pending the first tagged release (`v1.0.0`).
 - `allow-fork-pull-request-target` could no longer be set from `config-path` - that file is read from the job's working directory, which under `pull_request_target` with a fork-head checkout is the fork PR's own content, so honoring it from there defeated the safety net it was meant to enforce.
 - The `OpenAI` package was pinned back to `2.12.0` - a Dependabot PR had bumped it to `2.13.0`, which builds with only a `NU1608` warning but is outside the `[2.12.0, 2.13.0)` range `Microsoft.Extensions.AI.OpenAI` actually declares support for.
 
+### Security
+
+- `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), completing GitHub's recommended community-health-file checklist alongside the existing `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, and issue/PR templates.
+- All third-party actions used in this repo's own workflows (`actions/checkout`, `actions/setup-dotnet`, `actions/cache`, `github/codeql-action/*`) are now pinned to a full commit SHA instead of a mutable version tag - a tag can be silently repointed (by a compromised maintainer account or a force-pushed release, both of which have happened to widely-used actions), a SHA cannot. Dependabot still proposes updates via the trailing `# vN` comment.
+
 [Unreleased]: https://github.com/ykucukoglu/doc-translator-action/commits/main

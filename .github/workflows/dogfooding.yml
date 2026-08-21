@@ -30,8 +30,9 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      # Pinned to a full commit SHA, not a mutable tag - see ci.yml's checkout step for why.
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2 # doc-translator-action diffs against the previous commit / base ref
 
@@ -42,7 +43,7 @@ jobs:
       # though the exact key (this run's id) never matches on restore, and a fresh cache is always
       # saved at the end of the job.
       - name: Restore translation cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .doc-translator-cache
           key: doc-translator-cache-${{ github.run_id }}

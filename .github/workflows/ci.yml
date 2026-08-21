@@ -11,10 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      # Pinned to a full commit SHA, not a mutable tag - a compromised maintainer account or a
+      # force-pushed tag (both have happened to widely-used actions) would otherwise let attacker
+      # code run in this job silently. Dependabot still proposes updates via the trailing # vN
+      # comment; see .github/dependabot.yml's github-actions ecosystem entry.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: '9.0.x'
 
