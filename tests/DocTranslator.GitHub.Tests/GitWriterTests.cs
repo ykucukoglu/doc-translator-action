@@ -42,10 +42,12 @@ public sealed class GitWriterTests : IDisposable
             new Dictionary<string, string> { ["docs/tr/guide.md"] = "translated" },
             "commit message", "author", "author@test.com", remoteToken: "dummy");
 
-        File.ReadAllText(Path.Combine(repoRoot, "docs", "tr", "guide.md")).Should().Be("translated");
-
+        // The working directory is restored to its pre-call state (see the dedicated test below),
+        // so the pushed content is only verifiable from the remote branch, not the local checkout.
         using var remote = new Repository(_remoteRoot);
-        remote.Branches["doc-translator/test"].Should().NotBeNull();
+        var tip = remote.Branches["doc-translator/test"].Tip;
+        ((Blob)tip[Path.Combine("docs", "tr", "guide.md").Replace('\\', '/')].Target)
+            .GetContentText().Should().Be("translated");
     }
 
     [Fact]
@@ -74,6 +76,26 @@ public sealed class GitWriterTests : IDisposable
     }
 
     [Fact]
+    public void CommitAndPush_LeavesWorkingDirectoryOnItsOriginalBranch()
+    {
+        // repoRoot is the same working directory the calling job's later steps would still use -
+        // it must not be left checked out on the translation branch.
+        var repoRoot = NewWorkingRepo();
+        using var repo = new Repository(repoRoot);
+        var originalBranchName = repo.Head.FriendlyName;
+        var originalHeadSha = repo.Head.Tip.Sha;
+
+        _sut.CommitAndPush(
+            repoRoot, "doc-translator/test",
+            new Dictionary<string, string> { ["docs/tr/guide.md"] = "translated" },
+            "commit message", "author", "author@test.com", remoteToken: "dummy");
+
+        repo.Head.FriendlyName.Should().Be(originalBranchName);
+        repo.Head.Tip.Sha.Should().Be(originalHeadSha);
+        File.Exists(Path.Combine(repoRoot, "docs", "tr", "guide.md")).Should().BeFalse();
+    }
+
+    [Fact]
     public void CommitAndPush_NestedOutputPath_CreatesDirectories()
     {
         var repoRoot = NewWorkingRepo();
@@ -83,7 +105,9 @@ public sealed class GitWriterTests : IDisposable
             new Dictionary<string, string> { ["docs/de/guides/deep/nested.md"] = "content" },
             "commit", "author", "author@test.com", remoteToken: "dummy");
 
-        File.Exists(Path.Combine(repoRoot, "docs", "de", "guides", "deep", "nested.md")).Should().BeTrue();
+        using var remote = new Repository(_remoteRoot);
+        var tip = remote.Branches["doc-translator/nested"].Tip;
+        tip[Path.Combine("docs", "de", "guides", "deep", "nested.md").Replace('\\', '/')].Should().NotBeNull();
     }
 
     private string NewWorkingRepo()

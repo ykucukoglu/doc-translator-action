@@ -32,44 +32,58 @@ public sealed class GitWriter : IGitWriter
     {
         using var repo = new Repository(repositoryPath);
 
-        var branch = repo.Branches[branchName] ?? repo.CreateBranch(branchName);
-        Commands.Checkout(repo, branch);
+        // repositoryPath is the same /github/workspace the runner's own job (and any steps after
+        // this action) uses - checking out the translation branch here would leave that shared
+        // working directory pointed at it once this call returns. Restored in `finally` regardless
+        // of outcome, so a step after this action still sees whatever was checked out before it ran.
+        var wasDetached = repo.Info.IsHeadDetached;
+        var originalHeadRef = wasDetached ? repo.Head.Tip.Sha : repo.Head.FriendlyName;
 
-        foreach (var (relativePath, content) in filesToWrite)
+        try
         {
-            var fullPath = Path.Combine(repositoryPath, relativePath);
-            var directory = Path.GetDirectoryName(fullPath);
-            if (!string.IsNullOrEmpty(directory))
+            var branch = repo.Branches[branchName] ?? repo.CreateBranch(branchName);
+            Commands.Checkout(repo, branch);
+
+            foreach (var (relativePath, content) in filesToWrite)
             {
-                Directory.CreateDirectory(directory);
+                var fullPath = Path.Combine(repositoryPath, relativePath);
+                var directory = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                File.WriteAllText(fullPath, content);
+                Commands.Stage(repo, relativePath);
             }
 
-            File.WriteAllText(fullPath, content);
-            Commands.Stage(repo, relativePath);
-        }
+            var signature = new Signature(authorName, authorEmail, DateTimeOffset.Now);
+            repo.Commit(commitMessage, signature, signature);
 
-        var signature = new Signature(authorName, authorEmail, DateTimeOffset.Now);
-        repo.Commit(commitMessage, signature, signature);
+            var remote = repo.Network.Remotes["origin"]
+                ?? throw new InvalidOperationException($"No 'origin' remote configured in the repository at '{repositoryPath}'.");
 
-        var remote = repo.Network.Remotes["origin"]
-            ?? throw new InvalidOperationException($"No 'origin' remote configured in the repository at '{repositoryPath}'.");
-
-        var pushOptions = new PushOptions
-        {
-            CredentialsProvider = (_, _, _) => new UsernamePasswordCredentials
+            var pushOptions = new PushOptions
             {
-                Username = "x-access-token",
-                Password = remoteToken,
-            },
-        };
+                CredentialsProvider = (_, _, _) => new UsernamePasswordCredentials
+                {
+                    Username = "x-access-token",
+                    Password = remoteToken,
+                },
+            };
 
-        // Force-push (the leading '+'): branchName is deterministically derived from the
-        // triggering commit SHA (doc-translator/{shortSha}) and this action is the only writer of
-        // that ref, by design, for idempotent re-runs. Without the '+', a re-run of the same
-        // workflow run - e.g. after fixing an unrelated failure like a missing PR permission -
-        // starts from a fresh checkout with no knowledge of the branch a previous attempt already
-        // pushed, so a plain push is rejected as non-fast-forward even though regenerating that
-        // exact branch's content is exactly what a re-run is supposed to do.
-        repo.Network.Push(remote, $"+refs/heads/{branchName}:refs/heads/{branchName}", pushOptions);
+            // Force-push (the leading '+'): branchName is deterministically derived from the
+            // triggering commit SHA (doc-translator/{shortSha}) and this action is the only writer
+            // of that ref, by design, for idempotent re-runs. Without the '+', a re-run of the same
+            // workflow run - e.g. after fixing an unrelated failure like a missing PR permission -
+            // starts from a fresh checkout with no knowledge of the branch a previous attempt
+            // already pushed, so a plain push is rejected as non-fast-forward even though
+            // regenerating that exact branch's content is exactly what a re-run is supposed to do.
+            repo.Network.Push(remote, $"+refs/heads/{branchName}:refs/heads/{branchName}", pushOptions);
+        }
+        finally
+        {
+            Commands.Checkout(repo, originalHeadRef);
+        }
     }
 }
