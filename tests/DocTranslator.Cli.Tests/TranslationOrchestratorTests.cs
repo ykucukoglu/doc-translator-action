@@ -141,6 +141,49 @@ public sealed class TranslationOrchestratorTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_EstimateCostOnly_NeverCallsLlmOrWritesFiles()
+    {
+        WriteAndCommit("docs/guide.md", "# Hello\n\nSome text.\n", "base");
+        WriteAndCommit("docs/guide.md", "# Hello\n\nSome revised text.\n", "revise");
+
+        var orchestrator = BuildOrchestrator(out var translateCalls, out var gitHubService);
+        var options = BuildOptions(targetLanguages: ["tr"], estimateCostOnly: true);
+
+        var exitCode = await orchestrator.RunAsync(options, CancellationToken.None);
+
+        exitCode.Should().Be(0);
+        translateCalls.Should().BeEmpty();
+        gitHubService.LastRequest.Should().BeNull();
+        File.Exists(Path.Combine(_repoRoot, "docs", "tr", "guide.md")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RunAsync_EstimateCostOnly_PrintsChunkAndTokenCounts()
+    {
+        WriteAndCommit("docs/guide.md", "# Hello\n\nSome text.\n", "base");
+        WriteAndCommit("docs/guide.md", "# Hello\n\nSome revised text.\n", "revise");
+
+        var orchestrator = BuildOrchestrator(out _, out _);
+        var options = BuildOptions(targetLanguages: ["tr"], estimateCostOnly: true);
+
+        var originalOut = Console.Out;
+        using var writer = new StringWriter();
+        Console.SetOut(writer);
+        try
+        {
+            await orchestrator.RunAsync(options, CancellationToken.None);
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+
+        var output = writer.ToString();
+        output.Should().Contain("cost estimate");
+        output.Should().Contain("Estimated input tokens");
+    }
+
+    [Fact]
     public async Task RunAsync_BackfillOn_OnlyFillsMissingLanguagesNotAlreadyTranslatedOnes()
     {
         // Simulates adding a new target language later: docs/guide.md already has a "de"
@@ -248,7 +291,8 @@ public sealed class TranslationOrchestratorTests : IDisposable
         IReadOnlyList<string> targetLanguages,
         bool dryRun = true,
         string? baseBranch = null,
-        bool backfillMissingTranslations = false) =>
+        bool backfillMissingTranslations = false,
+        bool estimateCostOnly = false) =>
         new()
         {
             GitHubToken = "dummy",
@@ -259,6 +303,7 @@ public sealed class TranslationOrchestratorTests : IDisposable
             BaseBranch = baseBranch,
             GlossaryPath = Path.Combine(_repoRoot, ".doc-terms.json"),
             BackfillMissingTranslations = backfillMissingTranslations,
+            EstimateCostOnly = estimateCostOnly,
         };
 
     /// <summary>Records which source files were sent for translation, per <see cref="FakeTranslationService"/>-style behavior - no network call.</summary>

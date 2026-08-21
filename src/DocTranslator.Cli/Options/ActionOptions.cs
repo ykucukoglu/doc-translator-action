@@ -44,6 +44,12 @@ public sealed class ActionOptions
     /// </summary>
     public bool BackfillMissingTranslations { get; init; }
 
+    /// <summary>
+    /// When true, reports an estimated input-token count for this run's chunk/language pairs
+    /// (skipping ones already cached) and exits, without calling any LLM or touching git/GitHub.
+    /// </summary>
+    public bool EstimateCostOnly { get; init; }
+
     /// <summary>Bounds how many LLM batch requests run concurrently (per file/language). See <c>SemaphoreSlim</c> usage in ChatClientLlmTranslationService.</summary>
     public int MaxParallelRequests { get; init; } = 4;
 

@@ -34,6 +34,9 @@ public sealed class ConfigFile
     [JsonPropertyName("backfillMissingTranslations")]
     public bool? BackfillMissingTranslations { get; set; }
 
+    [JsonPropertyName("estimateCostOnly")]
+    public bool? EstimateCostOnly { get; set; }
+
     [JsonPropertyName("maxParallelRequests")]
     public int? MaxParallelRequests { get; set; }
 

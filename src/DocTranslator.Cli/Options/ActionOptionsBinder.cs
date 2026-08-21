@@ -22,6 +22,7 @@ public sealed class ActionOptionsCliOverrides
     public bool? DryRun { get; init; }
     public bool? UseFakeLlm { get; init; }
     public bool? BackfillMissingTranslations { get; init; }
+    public bool? EstimateCostOnly { get; init; }
     public int? MaxParallelRequests { get; init; }
     public bool Verbose { get; init; }
 }
@@ -45,10 +46,13 @@ public static class ActionOptionsBinder
         var repositoryPath = Directory.GetCurrentDirectory();
         var config = LoadConfigFile(cli, repositoryPath);
 
+        var estimateCostOnly = cli.EstimateCostOnly ?? ParseBool(ReadInput("estimate-cost-only")) ?? config?.EstimateCostOnly ?? false;
+
         // pr-mode is the user-facing on/off switch (default: open a PR); dry-run remains as an
         // explicit override for anyone who set it directly - if both are given, dry-run wins.
+        // estimate-cost-only never touches git/GitHub either, same as dry-run.
         var prMode = cli.PrMode ?? ParseBool(ReadInput("pr-mode")) ?? true;
-        var dryRun = cli.DryRun ?? ParseBool(ReadInput("dry-run")) ?? !prMode;
+        var dryRun = cli.DryRun ?? ParseBool(ReadInput("dry-run")) ?? (estimateCostOnly || !prMode);
 
         // github-token is only required when we're actually going to push/open a PR - a dry
         // run never touches GitHub credentials, so local smoke testing needs no token at all.
@@ -81,6 +85,7 @@ public static class ActionOptionsBinder
             DryRun = dryRun,
             FailOnStaleTranslations = ParseBool(ReadInput("fail-on-stale-translations")) ?? config?.FailOnStaleTranslations ?? false,
             BackfillMissingTranslations = cli.BackfillMissingTranslations ?? ParseBool(ReadInput("backfill-missing-translations")) ?? config?.BackfillMissingTranslations ?? false,
+            EstimateCostOnly = estimateCostOnly,
             MaxParallelRequests = cli.MaxParallelRequests ?? ParseInt(ReadInput("max-parallel-requests")) ?? config?.MaxParallelRequests ?? 4,
             RepositoryPath = repositoryPath,
         };

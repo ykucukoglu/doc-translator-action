@@ -43,5 +43,5 @@ public sealed class ChunkBatcher(int maxTokensPerBatch = 4000) : IChunkBatcher
         return batches;
     }
 
-    private static int EstimateTokens(string text) => Math.Max(1, text.Length / 4);
+    public static int EstimateTokens(string text) => Math.Max(1, text.Length / 4);
 }

@@ -120,13 +120,14 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `source-path` | `docs` | Root folder to scan for documentation. |
 | `include-glob` | `**/*.md` | Glob (relative to `source-path`) selecting which files to translate. |
 | `glossary-path` | `.doc-terms.json` | Path to the glossary file - see [Glossary](#glossary). |
-| `config-path` | — | Path to a JSON file supplying any of `targetLanguages`, `sourcePath`, `includeGlob`, `glossaryPath`, `outputPathTemplate`, `baseBranch`, `failOnStaleTranslations`, `backfillMissingTranslations`, `maxParallelRequests`, `llmProvider`, `geminiModel`, `openAiModel`, `claudeModel` - lets advanced setups avoid a large `with:` block. Explicit inputs always win over the config file. |
+| `config-path` | — | Path to a JSON file supplying any of `targetLanguages`, `sourcePath`, `includeGlob`, `glossaryPath`, `outputPathTemplate`, `baseBranch`, `failOnStaleTranslations`, `backfillMissingTranslations`, `estimateCostOnly`, `maxParallelRequests`, `llmProvider`, `geminiModel`, `openAiModel`, `claudeModel` - lets advanced setups avoid a large `with:` block. Explicit inputs always win over the config file. |
 | `output-path-template` | `docs/{lang}/{relativePath}` | Supports `{lang}`, `{relativePath}`, `{dir}`, `{filename}`, `{ext}` - see the Quick start snippets above. |
 | `base-branch` | *(auto)* | Base branch to diff against and open the PR into. Defaults to `GITHUB_BASE_REF` on `pull_request` events, or the previous commit on `push`. |
 | `pr-mode` | `true` | When `true`, pushes a branch and opens a PR. When `false`, writes translated files locally only - no `github-token` required. |
 | `dry-run` | — | Explicit override for `pr-mode`; wins if both are set. |
 | `fail-on-stale-translations` | `false` | Exit non-zero if any existing translated file is out of sync with its current source. |
 | `backfill-missing-translations` | `false` | Also translates any source file/language pair with no output yet, regardless of this run's diff. The diff-only pipeline never picks up pre-existing docs on its own - use this on a first install, or after adding a new target language. |
+| `estimate-cost-only` | `false` | Reports an estimated input-token count for the files/languages this run would translate (skipping anything already cached) and exits - no LLM call, no git/GitHub access. Run this before a first `backfill-missing-translations` pass against a large existing doc set. |
 | `max-parallel-requests` | `4` | Bounds concurrent LLM batch requests per file/language. |
 
 **Outputs:** `pr-url`, `translated-files-count`, `stale-translations-count`.

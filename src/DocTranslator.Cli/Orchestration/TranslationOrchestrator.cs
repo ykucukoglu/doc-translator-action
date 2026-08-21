@@ -10,6 +10,7 @@ using DocTranslator.GitHub.Cache;
 using DocTranslator.GitHub.Diff;
 using DocTranslator.GitHub.Operations;
 using DocTranslator.LLM;
+using DocTranslator.LLM.Batching;
 using DocTranslator.LLM.Providers;
 using Microsoft.Extensions.FileSystemGlobbing;
 
@@ -48,6 +49,12 @@ public sealed class TranslationOrchestrator(
         if (options.BackfillMissingTranslations)
         {
             AddBackfillWorkItems(options, docIgnoreFilter, changedFiles, workItems);
+        }
+
+        if (options.EstimateCostOnly)
+        {
+            await WriteCostEstimateAsync(options, workItems, cancellationToken);
+            return 0;
         }
 
         var summary = new TranslationRunSummary();
@@ -289,6 +296,68 @@ public sealed class TranslationOrchestrator(
             {
                 workItems.Add(new FileWorkItem(new ChangedFile(relativeSourcePath, FileChangeKind.Modified), missingLanguages));
             }
+        }
+    }
+
+    /// <summary>
+    /// Parses every work item's chunks (without calling any LLM) and reports an estimated
+    /// input-token count, skipping chunk/language pairs already in the translation cache.
+    /// </summary>
+    private async Task WriteCostEstimateAsync(ActionOptions options, IReadOnlyList<FileWorkItem> workItems, CancellationToken cancellationToken)
+    {
+        var totalPairs = 0;
+        var cachedPairs = 0;
+        var estimatedTokens = 0;
+
+        foreach (var (file, languages) in workItems)
+        {
+            var absoluteSourcePath = Path.Combine(options.RepositoryPath, file.Path);
+            var markdown = await File.ReadAllTextAsync(absoluteSourcePath, cancellationToken);
+            if (markdown.StartsWith(TranslationProvenance.HeaderPrefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var context = parserService.ParseAndExtractChunks(file.Path, markdown);
+
+            foreach (var chunk in context.Chunks)
+            {
+                foreach (var targetLanguage in languages)
+                {
+                    totalPairs++;
+
+                    if (translationCache.TryGet(file.Path, targetLanguage, chunk.ContentHash) is not null)
+                    {
+                        cachedPairs++;
+                        continue;
+                    }
+
+                    estimatedTokens += ChunkBatcher.EstimateTokens(chunk.SourceText);
+                }
+            }
+        }
+
+        var note = "Rough char/4 heuristic; completion/output tokens are typically similar in magnitude to input for a translation task. No LLM was called.";
+
+        Console.WriteLine("=== doc-translator-action cost estimate ===");
+        Console.WriteLine($"Files: {workItems.Count}");
+        Console.WriteLine($"Chunk/language pairs: {totalPairs} ({cachedPairs} already cached)");
+        Console.WriteLine($"Estimated input tokens for the LLM calls this run would make: ~{estimatedTokens}");
+        Console.WriteLine(note);
+
+        var summaryFile = Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY");
+        if (!string.IsNullOrWhiteSpace(summaryFile))
+        {
+            var markdownLines = new[]
+            {
+                "## doc-translator-action cost estimate",
+                $"- Files: {workItems.Count}",
+                $"- Chunk/language pairs: {totalPairs} ({cachedPairs} already cached)",
+                $"- Estimated input tokens: ~{estimatedTokens}",
+                "",
+                note,
+            };
+            await File.AppendAllLinesAsync(summaryFile, markdownLines, cancellationToken);
         }
     }
 

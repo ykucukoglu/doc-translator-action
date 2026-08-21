@@ -22,6 +22,7 @@ Everything below is pending the first tagged release (`v1.0.0`).
 - `backfill-missing-translations` input: translates any source file/language pair with no output yet regardless of this run's diff, for a first install against pre-existing docs or after adding a new target language.
 - `DocTranslator.Cli.Tests`: end-to-end orchestrator tests against a real throwaway git repo, with only the LLM call and the GitHub PR API faked.
 - `DocTranslator.GitHub.Tests`: diff analyzer and git-write mechanics tests against real throwaway repos.
+- `estimate-cost-only` input: reports an estimated input-token count for the run (skipping anything already cached) and exits, with no LLM call and no git/GitHub access.
 
 ### Fixed
 
