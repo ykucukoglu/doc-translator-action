@@ -127,6 +127,41 @@ public class MarkdigParserServiceTests
     }
 
     [Fact]
+    public void ParseAndExtractChunks_MermaidDiagram_OffByDefault_ExtractsNoLabels()
+    {
+        var markdown = Fixtures.Load("mermaid-diagram.md");
+
+        var context = _sut.ParseAndExtractChunks("mermaid-diagram.md", markdown);
+
+        context.MermaidBlocks.Should().BeEmpty();
+        context.Chunks.Should().NotContain(c => c.BlockKind == BlockKind.MermaidLabel);
+    }
+
+    [Fact]
+    public void ParseAndExtractChunks_MermaidDiagram_WhenEnabled_ExtractsLabelsAsChunks()
+    {
+        var markdown = Fixtures.Load("mermaid-diagram.md");
+
+        var context = _sut.ParseAndExtractChunks("mermaid-diagram.md", markdown, translateMermaidDiagrams: true);
+
+        var mermaidChunks = context.Chunks.Where(c => c.BlockKind == BlockKind.MermaidLabel).ToList();
+        mermaidChunks.Select(c => c.SourceText).Should().BeEquivalentTo(["Start Here", "End Here", "Yes, proceed", "No", "Decision Point"]);
+        context.MermaidBlocks.Should().ContainSingle();
+        context.MermaidBlocks[0].Labels.Should().HaveCount(5);
+    }
+
+    [Fact]
+    public void ParseAndExtractChunks_MermaidDiagram_WhenEnabled_ArrowsAndNodeIdsNeverBecomeChunks()
+    {
+        var markdown = Fixtures.Load("mermaid-diagram.md");
+
+        var context = _sut.ParseAndExtractChunks("mermaid-diagram.md", markdown, translateMermaidDiagrams: true);
+
+        var allMermaidText = string.Join('\n', context.Chunks.Where(c => c.BlockKind == BlockKind.MermaidLabel).Select(c => c.SourceText));
+        allMermaidText.Should().NotContain("-->").And.NotContain("flowchart").And.NotContain("A[").And.NotContain("B[");
+    }
+
+    [Fact]
     public void ParseAndExtractChunks_FencedCodeBlocks_CountsThem()
     {
         var markdown = Fixtures.Load("fenced-code-blocks.md");

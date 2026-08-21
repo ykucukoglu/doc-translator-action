@@ -116,6 +116,7 @@ public static class ActionOptionsBinder
             SourceLanguage = cli.SourceLanguage ?? ReadInput("source-language") ?? config?.SourceLanguage ?? "auto",
             MaxBatchTokens = cli.MaxBatchTokens ?? ParseInt(ReadInput("max-batch-tokens")) ?? config?.MaxBatchTokens ?? 4000,
             Verbose = cli.Verbose || (ParseBool(ReadInput("verbose")) ?? false),
+            TranslateMermaidDiagrams = ParseBool(ReadInput("translate-mermaid-diagrams")) ?? config?.TranslateMermaidDiagrams ?? false,
             RepositoryPath = repositoryPath,
         };
     }

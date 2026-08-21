@@ -48,6 +48,9 @@ public sealed class ConfigFile
     [JsonPropertyName("cleanupStaleBranches")]
     public bool? CleanupStaleBranches { get; set; }
 
+    [JsonPropertyName("translateMermaidDiagrams")]
+    public bool? TranslateMermaidDiagrams { get; set; }
+
     [JsonPropertyName("sourceLanguage")]
     public string? SourceLanguage { get; set; }
 

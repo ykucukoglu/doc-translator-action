@@ -38,12 +38,23 @@ public sealed class AstReconstructor : IAstReconstructor
         CancellationToken cancellationToken)
     {
         var chunksById = context.Chunks.ToDictionary(c => c.ChunkId);
+        var mermaidChunkIds = context.MermaidBlocks.SelectMany(b => b.Labels.Select(l => l.ChunkId)).ToHashSet();
+        var mermaidTranslations = new Dictionary<string, string>();
         var repairedIds = new List<string>();
         var unrecoverableIds = new List<string>();
 
         foreach (var translated in translatedChunks)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (mermaidChunkIds.Contains(translated.ChunkId))
+            {
+                // Mermaid labels are plain text extracted by pattern, not AST inline content - no
+                // placeholder/tag markers to verify, so no self-healing round-trip needed here.
+                // Spliced into their block's raw text separately, once every chunk is in hand.
+                mermaidTranslations[translated.ChunkId] = translated.TranslatedText;
+                continue;
+            }
 
             if (!chunksById.TryGetValue(translated.ChunkId, out var originalChunk))
             {
@@ -58,6 +69,22 @@ public sealed class AstReconstructor : IAstReconstructor
         }
 
         var rendered = RenderDocument(context);
+
+        // Mermaid content has no Markdig Inline tree to splice a translation into (see
+        // MermaidBlockContext) - each block's translated labels are assembled into a copy of its
+        // original raw text, then that exact original text is found and replaced in the already-
+        // rendered document. A block whose chunks all came back untranslated (translation failed,
+        // or nothing was actually found to translate) is simply not replaced - it renders exactly
+        // as it always did.
+        foreach (var block in context.MermaidBlocks)
+        {
+            var translatedRawText = ApplyMermaidTranslations(block, mermaidTranslations);
+            if (translatedRawText != block.OriginalRawText)
+            {
+                rendered = rendered.Replace(block.OriginalRawText, translatedRawText, StringComparison.Ordinal);
+            }
+        }
+
         var markdown = provenance is null
             ? rendered
             : provenance.ToHeaderComment() + Environment.NewLine + Environment.NewLine + rendered;
@@ -315,6 +342,28 @@ public sealed class AstReconstructor : IAstReconstructor
             default:
                 throw new InvalidOperationException($"Unhandled encoded node type '{node.GetType().Name}'.");
         }
+    }
+
+    /// <summary>
+    /// Splices every label this block had a translation for into a copy of its raw text, working
+    /// from the last span to the first so an earlier span's (Start, Length) offsets are never
+    /// invalidated by a replacement made after it. A label with no entry in
+    /// <paramref name="mermaidTranslations"/> (translation failed for just that one chunk) keeps
+    /// its original text rather than leaving a gap.
+    /// </summary>
+    private static string ApplyMermaidTranslations(MermaidBlockContext block, Dictionary<string, string> mermaidTranslations)
+    {
+        var text = block.OriginalRawText;
+
+        foreach (var (chunkId, span) in block.Labels.OrderByDescending(l => l.Span.Start))
+        {
+            if (mermaidTranslations.TryGetValue(chunkId, out var translatedText))
+            {
+                text = string.Concat(text.AsSpan(0, span.Start), translatedText, text.AsSpan(span.Start + span.Length));
+            }
+        }
+
+        return text;
     }
 
     private static string RenderDocument(DocumentTranslationContext context)

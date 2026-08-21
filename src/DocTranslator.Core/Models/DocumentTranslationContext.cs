@@ -31,4 +31,13 @@ public sealed class DocumentTranslationContext
 
     /// <summary>Count of fenced/indented code blocks skipped entirely at the block level (never chunked, never sent to the LLM) - reported in the PR summary alongside inline code/link/glossary preservation counts.</summary>
     public int CodeBlockCount { get; init; }
+
+    /// <summary>
+    /// One entry per ```mermaid fenced code block whose labels were extracted (only when
+    /// <c>translate-mermaid-diagrams</c> is on) - each label is also present in <see cref="Chunks"/>
+    /// (<see cref="BlockKind.MermaidLabel"/>) so it goes through the same LLM/cache pipeline as
+    /// everything else, but reconstruction splices it back via this list instead of
+    /// <see cref="ReconstructionMap"/>, since mermaid content has no Markdig Inline tree to splice into.
+    /// </summary>
+    public IReadOnlyList<MermaidBlockContext> MermaidBlocks { get; init; } = [];
 }

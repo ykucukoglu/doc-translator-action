@@ -10,4 +10,7 @@ public enum BlockKind
     TableCell,
     ListItem,
     BlockQuote,
+
+    /// <summary>A single node/edge/subgraph label extracted from a ```mermaid fenced code block - see <c>MermaidLabelExtractor</c>.</summary>
+    MermaidLabel,
 }

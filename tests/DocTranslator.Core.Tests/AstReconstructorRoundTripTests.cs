@@ -263,4 +263,47 @@ public class AstReconstructorRoundTripTests
             .Should().BeLessThan(normalized.IndexOf("doc-translator: source-hash", StringComparison.Ordinal));
         normalized.Should().NotContain("⟪title"); // frontmatter itself was never sent for translation
     }
+
+    [Fact]
+    public async Task Reconstruct_MermaidDiagram_OffByDefault_LeavesDiagramCompletelyUntouched()
+    {
+        var markdown = Fixtures.Load("mermaid-diagram.md");
+        var context = _parser.ParseAndExtractChunks("mermaid-diagram.md", markdown);
+        var translated = FakeTranslate(context.Chunks);
+
+        var outcome = await ReconstructAsync(context, translated);
+
+        outcome.Markdown.Should().Contain("A[Start Here] -->|Yes, proceed| B[End Here]");
+    }
+
+    [Fact]
+    public async Task Reconstruct_MermaidDiagram_WhenEnabled_TranslatesLabelsButNeverArrowsOrIds()
+    {
+        var markdown = Fixtures.Load("mermaid-diagram.md");
+        var context = _parser.ParseAndExtractChunks("mermaid-diagram.md", markdown, translateMermaidDiagrams: true);
+        var translated = FakeTranslate(context.Chunks);
+
+        var outcome = await ReconstructAsync(context, translated);
+
+        // Labels got translated (fake-wrapped)...
+        outcome.Markdown.Should().Contain("⟪Start Here⟫").And.Contain("⟪End Here⟫").And.Contain("⟪Yes, proceed⟫");
+        // ...but the diagram's own syntax survives byte-for-byte: node ids, arrows, the type
+        // declaration, and the shape delimiters immediately around each now-translated label.
+        outcome.Markdown.Should().Contain("flowchart TD");
+        outcome.Markdown.Should().Contain("A[⟪Start Here⟫] -->|⟪Yes, proceed⟫| B[⟪End Here⟫]");
+        outcome.Markdown.Should().Contain("A -->|⟪No⟫| C{⟪Decision Point⟫}");
+    }
+
+    [Fact]
+    public async Task Reconstruct_MermaidDiagram_ProseOutsideTheDiagramStillTranslatesNormally()
+    {
+        var markdown = Fixtures.Load("mermaid-diagram.md");
+        var context = _parser.ParseAndExtractChunks("mermaid-diagram.md", markdown, translateMermaidDiagrams: true);
+        var translated = FakeTranslate(context.Chunks);
+
+        var outcome = await ReconstructAsync(context, translated);
+
+        outcome.Markdown.Should().Contain("⟪Architecture⟫");
+        outcome.Markdown.Should().Contain("⟪Some prose after the diagram.⟫");
+    }
 }

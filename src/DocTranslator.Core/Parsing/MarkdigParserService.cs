@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using DocTranslator.Core.Diagrams;
 using DocTranslator.Core.Extensions;
 using DocTranslator.Core.Models;
 using Markdig;
@@ -14,16 +15,18 @@ public interface IMarkdigParserService
     /// <summary>
     /// Parses a Markdown document, walks its AST, and extracts one <see cref="TranslationChunk"/>
     /// per translatable leaf block. Code blocks, fenced code blocks, raw HTML blocks, thematic
-    /// breaks, and YAML/TOML frontmatter are skipped entirely and never touched.
+    /// breaks, and YAML/TOML frontmatter are skipped entirely and never touched - except a
+    /// ```mermaid block's node/edge/subgraph labels when <paramref name="translateMermaidDiagrams"/>
+    /// is on (see <see cref="MermaidLabelExtractor"/>).
     /// </summary>
-    DocumentTranslationContext ParseAndExtractChunks(string sourceFilePath, string markdownText);
+    DocumentTranslationContext ParseAndExtractChunks(string sourceFilePath, string markdownText, bool translateMermaidDiagrams = false);
 }
 
 public sealed class MarkdigParserService : IMarkdigParserService
 {
     private readonly InlineChunkExtractor _extractor = new();
 
-    public DocumentTranslationContext ParseAndExtractChunks(string sourceFilePath, string markdownText)
+    public DocumentTranslationContext ParseAndExtractChunks(string sourceFilePath, string markdownText, bool translateMermaidDiagrams = false)
     {
         // Markdig's UseYamlFrontMatter() only recognizes `---`-delimited YAML - Hugo's `+++`-delimited
         // TOML frontmatter has no native Markdig support at all, so it's stripped here, before
@@ -47,9 +50,10 @@ public sealed class MarkdigParserService : IMarkdigParserService
 
         var chunks = new List<TranslationChunk>();
         var reconstructionMap = new Dictionary<string, BlockReconstructionContext>();
+        var mermaidBlocks = new List<MermaidBlockContext>();
         var codeBlockCount = 0;
 
-        WalkBlocks(document, sourceFilePath, chunks, reconstructionMap, ref codeBlockCount);
+        WalkBlocks(document, sourceFilePath, chunks, reconstructionMap, mermaidBlocks, translateMermaidDiagrams, ref codeBlockCount);
 
         return new DocumentTranslationContext
         {
@@ -59,6 +63,7 @@ public sealed class MarkdigParserService : IMarkdigParserService
             ReconstructionMap = reconstructionMap,
             FrontmatterRawText = frontmatterRawText,
             CodeBlockCount = codeBlockCount,
+            MermaidBlocks = mermaidBlocks,
         };
     }
 
@@ -67,6 +72,8 @@ public sealed class MarkdigParserService : IMarkdigParserService
         string sourceFilePath,
         List<TranslationChunk> chunks,
         Dictionary<string, BlockReconstructionContext> reconstructionMap,
+        List<MermaidBlockContext> mermaidBlocks,
+        bool translateMermaidDiagrams,
         ref int codeBlockCount)
     {
         foreach (var block in container)
@@ -76,6 +83,11 @@ public sealed class MarkdigParserService : IMarkdigParserService
                 // Never touched: code/HTML/structural blocks carry no natural language. (A leading
                 // YamlFrontMatterBlock, if present, was already removed from the tree entirely -
                 // see ParseAndExtractChunks - so it's never seen here.)
+                case FencedCodeBlock fenced when translateMermaidDiagrams && string.Equals(fenced.Info, "mermaid", StringComparison.OrdinalIgnoreCase):
+                    codeBlockCount++;
+                    TryExtractMermaidLabels(fenced, sourceFilePath, chunks, mermaidBlocks);
+                    break;
+
                 case CodeBlock:
                     codeBlockCount++;
                     break;
@@ -104,7 +116,7 @@ public sealed class MarkdigParserService : IMarkdigParserService
                 case ContainerBlock nestedContainer:
                     // Document, QuoteBlock, ListBlock, ListItemBlock, Table, TableRow, TableCell -
                     // no chunk of their own, recurse into children.
-                    WalkBlocks(nestedContainer, sourceFilePath, chunks, reconstructionMap, ref codeBlockCount);
+                    WalkBlocks(nestedContainer, sourceFilePath, chunks, reconstructionMap, mermaidBlocks, translateMermaidDiagrams, ref codeBlockCount);
                     break;
 
                 default:
@@ -145,6 +157,44 @@ public sealed class MarkdigParserService : IMarkdigParserService
 
         chunks.Add(chunk);
         reconstructionMap[chunkId] = reconstructionContext;
+    }
+
+    /// <summary>
+    /// Extracts translatable labels from one ```mermaid block via <see cref="MermaidLabelExtractor"/>
+    /// and turns each into its own <see cref="TranslationChunk"/>, exactly like any other chunk from
+    /// here on (same LLM call, same cache) - only reconstruction treats mermaid chunks differently,
+    /// via the <see cref="MermaidBlockContext"/> this also builds (see
+    /// <see cref="DocumentTranslationContext.MermaidBlocks"/>). A block with no recognized labels
+    /// (unsupported diagram type, or a supported one with nothing this extractor's patterns match)
+    /// contributes no chunks and no context entry - left exactly as untouched as it always was.
+    /// </summary>
+    private static void TryExtractMermaidLabels(
+        FencedCodeBlock fenced,
+        string sourceFilePath,
+        List<TranslationChunk> chunks,
+        List<MermaidBlockContext> mermaidBlocks)
+    {
+        var rawText = fenced.Lines.ToString();
+        var labelSpans = MermaidLabelExtractor.ExtractLabels(rawText);
+        if (labelSpans.Count == 0)
+        {
+            return;
+        }
+
+        var labels = new List<(string ChunkId, MermaidLabelSpan Span)>(labelSpans.Count);
+        foreach (var span in labelSpans)
+        {
+            var chunkId = Guid.NewGuid().ToString("N");
+            chunks.Add(new TranslationChunk(
+                ChunkId: chunkId,
+                SourceText: span.Text,
+                ContentHash: ComputeHash(span.Text),
+                BlockKind: BlockKind.MermaidLabel,
+                SourceFilePath: sourceFilePath));
+            labels.Add((chunkId, span));
+        }
+
+        mermaidBlocks.Add(new MermaidBlockContext { OriginalRawText = rawText, Labels = labels });
     }
 
     /// <summary>

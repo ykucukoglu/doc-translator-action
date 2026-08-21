@@ -81,5 +81,12 @@ public sealed class ActionOptions
     /// <summary>Prints the full exception (not just its message) to stderr on failure.</summary>
     public bool Verbose { get; init; }
 
+    /// <summary>
+    /// When true, translates node/edge/subgraph labels inside ```mermaid flowchart/graph diagrams
+    /// (see <c>MermaidLabelExtractor</c>) - off by default, since this is the only feature that
+    /// ever modifies content inside what would otherwise be an untouched code block.
+    /// </summary>
+    public bool TranslateMermaidDiagrams { get; init; }
+
     public string RepositoryPath { get; init; } = Directory.GetCurrentDirectory();
 }

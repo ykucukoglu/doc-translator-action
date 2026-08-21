@@ -129,7 +129,7 @@ public sealed class TranslationOrchestrator(
 
             using var group = log.BeginGroup($"Translate {changedFile.Path}");
 
-            var context = parserService.ParseAndExtractChunks(changedFile.Path, markdown);
+            var context = parserService.ParseAndExtractChunks(changedFile.Path, markdown, options.TranslateMermaidDiagrams);
             var sourceTextByChunkId = context.Chunks.ToDictionary(c => c.ChunkId, c => c.SourceText);
             var provenance = new TranslationProvenance(driftDetector.HashFile(absoluteSourcePath), changedFile.Path, string.Empty, DateTimeOffset.UtcNow);
 
@@ -362,7 +362,7 @@ public sealed class TranslationOrchestrator(
                 continue;
             }
 
-            var context = parserService.ParseAndExtractChunks(file.Path, markdown);
+            var context = parserService.ParseAndExtractChunks(file.Path, markdown, options.TranslateMermaidDiagrams);
 
             foreach (var chunk in context.Chunks)
             {

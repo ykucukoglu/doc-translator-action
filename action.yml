@@ -63,7 +63,7 @@ inputs:
     required: false
     default: '.doc-terms.json'
   config-path:
-    description: 'Path to an optional JSON config file supplying any of target-languages, source-path, include-glob, glossary-path, output-path-template, base-branch, fail-on-stale-translations, backfill-missing-translations, estimate-cost-only, max-parallel-requests, cleanup-stale-branches, source-language, max-batch-tokens, llm-provider, llm-fallback-provider, gemini-model, openai-model, openai-base-url, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file. Note: allow-fork-pull-request-target is deliberately NOT supported here - see its own description below.'
+    description: 'Path to an optional JSON config file supplying any of target-languages, source-path, include-glob, glossary-path, output-path-template, base-branch, fail-on-stale-translations, backfill-missing-translations, estimate-cost-only, max-parallel-requests, cleanup-stale-branches, source-language, max-batch-tokens, translate-mermaid-diagrams, llm-provider, llm-fallback-provider, gemini-model, openai-model, openai-base-url, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file. Note: allow-fork-pull-request-target is deliberately NOT supported here - see its own description below.'
     required: false
   output-path-template:
     description: 'Template for translated file output paths. Supports {lang}, {relativePath}, {dir}, {filename}, {ext} - e.g. "{dir}/{filename}.{lang}.{ext}" for MkDocs/Docusaurus-style co-located naming.'
@@ -109,6 +109,10 @@ inputs:
     default: '4000'
   verbose:
     description: 'When true, prints the full exception (not just its message) to stderr on failure.'
+    required: false
+    default: 'false'
+  translate-mermaid-diagrams:
+    description: 'When true, translates node/edge/subgraph text labels inside ```mermaid flowchart/graph diagrams, leaving arrows, node ids, and the diagram syntax itself untouched. Off by default; only flowchart/graph diagrams are supported (other mermaid diagram types and PlantUML are left as-is).'
     required: false
     default: 'false'
   allow-fork-pull-request-target:

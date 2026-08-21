@@ -159,6 +159,29 @@ public sealed class ActionOptionsBinderTests : IDisposable
     }
 
     [Fact]
+    public void Bind_TranslateMermaidDiagrams_DefaultsToFalse()
+    {
+        Set("INPUT_PR-MODE", "false");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.TranslateMermaidDiagrams.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Bind_TranslateMermaidDiagramsTrue_IsRespected()
+    {
+        Set("INPUT_PR-MODE", "false");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+        Set("INPUT_TRANSLATE-MERMAID-DIAGRAMS", "true");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.TranslateMermaidDiagrams.Should().BeTrue();
+    }
+
+    [Fact]
     public void Bind_SourceLanguageAndMaxBatchTokens_DefaultToAutoAnd4000()
     {
         Set("INPUT_PR-MODE", "false");
