@@ -22,6 +22,7 @@ Markdown is parsed into a real AST via [Markdig](https://github.com/xoofx/markdi
 - 🚫 **`.doc-ignore`** — exclude files like `CHANGELOG.md` or `DRAFT_*.md` from the pipeline entirely.
 - 📄 **Frontmatter & admonitions aware** — YAML/TOML frontmatter and Docusaurus/MyST `::: note ... :::` blocks are recognized structurally, not swept into translatable text like an ordinary paragraph.
 - 🗺️ **Mermaid diagram labels** (opt-in) — `translate-mermaid-diagrams: true` translates node/edge/subgraph text inside flowchart/graph diagrams; arrows, node ids, and syntax are never touched. Image alt text (`![alt](url)`) is translated by default already, since it's just inline Markdown content.
+- 💬 **ChatOps-friendly** — `push-to-current-branch: true` commits straight onto whatever branch is checked out instead of opening a new PR, so a `/translate` PR comment can push the result back onto that same PR. See [Comment-triggered (ChatOps)](#comment-triggered-chatops).
 - 🔍 **Rich PR summary comment** — a side-by-side original/translated preview per file (collapsible), a count of code blocks/links/glossary terms preserved untouched, and a mention of whoever triggered the run - reviewable without opening a single file.
 
 ## Quick start
@@ -123,6 +124,48 @@ Translated files sit next to the source, differentiated by a locale suffix (`gui
           target-languages: tr,de
 ```
 
+### Comment-triggered (ChatOps)
+
+A maintainer comments `/translate` on a PR to (re)translate its changed docs, pushed straight back onto that PR's own branch - no separate translation PR. `push-to-current-branch: true` is what makes this possible: it commits directly onto whatever's checked out instead of opening a new PR.
+
+**Security note:** `issue_comment` runs the workflow file from the base branch (not the PR's), so a fork PR can't tamper with the workflow logic itself - but it can still comment. The `author_association` check below restricts who can trigger a run to people with write access; don't remove it on a public repo.
+
+```yaml
+name: Translate on comment
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  translate:
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/translate') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Resolve target languages from the comment
+        id: langs
+        run: |
+          langs=$(echo "${{ github.event.comment.body }}" | sed -E 's|^/translate\s*||' | tr -d ' ')
+          echo "value=${langs:-tr}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the PR's own branch
+        run: gh pr checkout ${{ github.event.issue.number }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: ykucukoglu/doc-translator-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          target-languages: ${{ steps.langs.outputs.value }}
+          push-to-current-branch: true
+```
+
 ### Local dry run
 
 No API keys or GitHub token needed:
@@ -174,6 +217,7 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `max-batch-tokens` | `4000` | Approximate token budget per LLM batch request (char/4 heuristic). |
 | `verbose` | `false` | Prints the full exception (not just its message) to stderr on failure. |
 | `translate-mermaid-diagrams` | `false` | Translates node/edge/subgraph text labels inside ` ```mermaid ` flowchart/graph diagrams, leaving arrows, node ids, and the diagram syntax itself untouched. Only flowchart/graph diagrams are supported - other mermaid diagram types and PlantUML are left as-is. |
+| `push-to-current-branch` | `false` | Commits and pushes directly onto whatever branch is already checked out - no new branch, no pull request. See [Comment-triggered (ChatOps)](#comment-triggered-chatops). Requires a real branch checkout, not a detached HEAD. |
 
 **Outputs:** `pr-url`, `pr-was-created`, `translated-files-count`, `stale-translations-count`.
 

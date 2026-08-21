@@ -19,9 +19,19 @@ public sealed record GitHubPushRequest(
 
 public sealed record PullRequestOutcome(string Url, int Number, bool WasCreated);
 
+/// <summary>Everything needed to push straight onto whatever branch is already checked out - no new branch, no PR. See <see cref="IGitWriter.CommitAndPushToCurrentBranch"/>.</summary>
+public sealed record CurrentBranchPushRequest(
+    string RepositoryPath,
+    IReadOnlyDictionary<string, string> FilesToCommit,
+    string CommitMessage,
+    string Token);
+
 public interface IGitHubService
 {
     Task<PullRequestOutcome> CommitAndOpenPullRequestAsync(GitHubPushRequest request, CancellationToken cancellationToken);
+
+    /// <summary>No Octokit call at all - just the git push. The branch is presumed to already belong to whatever PR (if any) the caller cares about.</summary>
+    Task CommitToCurrentBranchAsync(CurrentBranchPushRequest request, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -122,6 +132,21 @@ public sealed class OctokitGitHubService(IGitWriter gitWriter) : IGitHubService
             cancellationToken.ThrowIfCancellationRequested();
             await client.Git.Reference.Delete(request.Owner, request.RepositoryName, $"heads/{branch.Name}");
         }
+    }
+
+    public Task CommitToCurrentBranchAsync(CurrentBranchPushRequest request, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        gitWriter.CommitAndPushToCurrentBranch(
+            request.RepositoryPath,
+            request.FilesToCommit,
+            request.CommitMessage,
+            authorName: "doc-translator-action",
+            authorEmail: "doc-translator-action@users.noreply.github.com",
+            remoteToken: request.Token);
+
+        return Task.CompletedTask;
     }
 
     private static async Task<PullRequestOutcome> CreatePullRequestAsync(GitHubClient client, GitHubPushRequest request)

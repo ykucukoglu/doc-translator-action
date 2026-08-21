@@ -88,5 +88,13 @@ public sealed class ActionOptions
     /// </summary>
     public bool TranslateMermaidDiagrams { get; init; }
 
+    /// <summary>
+    /// When true, commits and pushes translated files directly onto whatever branch is already
+    /// checked out - no new branch, no pull request. Meant for a workflow with its own reason to
+    /// already be on a specific branch (e.g. a PR-comment-triggered run pushing back onto that
+    /// PR's own branch). Requires the checkout to be a real branch, not a detached HEAD.
+    /// </summary>
+    public bool PushToCurrentBranch { get; init; }
+
     public string RepositoryPath { get; init; } = Directory.GetCurrentDirectory();
 }

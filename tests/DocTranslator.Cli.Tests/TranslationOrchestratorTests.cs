@@ -282,6 +282,23 @@ public sealed class TranslationOrchestratorTests : IDisposable
         comment.Should().Contain("Getting Started");
     }
 
+    [Fact]
+    public async Task RunAsync_PushToCurrentBranch_CommitsDirectlyAndNeverOpensAPullRequest()
+    {
+        WriteAndCommit("docs/guide.md", "# Hello\n\nSome text.\n", "base");
+        WriteAndCommit("docs/guide.md", "# Hello\n\nSome revised text.\n", "revise");
+
+        var orchestrator = BuildOrchestrator(out _, out var gitHubService);
+        var options = BuildOptions(targetLanguages: ["tr"], dryRun: false, pushToCurrentBranch: true);
+
+        var exitCode = await orchestrator.RunAsync(options, CancellationToken.None);
+
+        exitCode.Should().Be(0);
+        gitHubService.LastCurrentBranchRequest.Should().NotBeNull();
+        gitHubService.LastCurrentBranchRequest!.FilesToCommit.Should().ContainSingle(kvp => kvp.Key.Contains("guide.md") && kvp.Key.Contains("tr"));
+        gitHubService.LastRequest.Should().BeNull("push-to-current-branch never opens/reuses a pull request");
+    }
+
     private void WriteAndCommit(string relativePath, string content, string message)
     {
         var fullPath = Path.Combine(_repoRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
@@ -325,7 +342,8 @@ public sealed class TranslationOrchestratorTests : IDisposable
         bool dryRun = true,
         string? baseBranch = null,
         bool backfillMissingTranslations = false,
-        bool estimateCostOnly = false) =>
+        bool estimateCostOnly = false,
+        bool pushToCurrentBranch = false) =>
         new()
         {
             GitHubToken = "dummy",
@@ -337,6 +355,7 @@ public sealed class TranslationOrchestratorTests : IDisposable
             GlossaryPath = Path.Combine(_repoRoot, ".doc-terms.json"),
             BackfillMissingTranslations = backfillMissingTranslations,
             EstimateCostOnly = estimateCostOnly,
+            PushToCurrentBranch = pushToCurrentBranch,
         };
 
     /// <summary>Records which source files were sent for translation, per <see cref="FakeTranslationService"/>-style behavior - no network call.</summary>
@@ -384,10 +403,18 @@ public sealed class TranslationOrchestratorTests : IDisposable
     {
         public GitHubPushRequest? LastRequest { get; private set; }
 
+        public CurrentBranchPushRequest? LastCurrentBranchRequest { get; private set; }
+
         public Task<PullRequestOutcome> CommitAndOpenPullRequestAsync(GitHubPushRequest request, CancellationToken cancellationToken)
         {
             LastRequest = request;
             return Task.FromResult(new PullRequestOutcome("https://example.com/pr/1", 1, WasCreated: true));
+        }
+
+        public Task CommitToCurrentBranchAsync(CurrentBranchPushRequest request, CancellationToken cancellationToken)
+        {
+            LastCurrentBranchRequest = request;
+            return Task.CompletedTask;
         }
     }
 }

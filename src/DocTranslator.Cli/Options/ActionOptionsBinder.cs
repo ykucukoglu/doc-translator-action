@@ -117,6 +117,7 @@ public static class ActionOptionsBinder
             MaxBatchTokens = cli.MaxBatchTokens ?? ParseInt(ReadInput("max-batch-tokens")) ?? config?.MaxBatchTokens ?? 4000,
             Verbose = cli.Verbose || (ParseBool(ReadInput("verbose")) ?? false),
             TranslateMermaidDiagrams = ParseBool(ReadInput("translate-mermaid-diagrams")) ?? config?.TranslateMermaidDiagrams ?? false,
+            PushToCurrentBranch = ParseBool(ReadInput("push-to-current-branch")) ?? config?.PushToCurrentBranch ?? false,
             RepositoryPath = repositoryPath,
         };
     }

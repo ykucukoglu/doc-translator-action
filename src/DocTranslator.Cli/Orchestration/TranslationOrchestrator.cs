@@ -497,6 +497,14 @@ public sealed class TranslationOrchestrator(
             return null;
         }
 
+        if (options.PushToCurrentBranch)
+        {
+            await gitHubService.CommitToCurrentBranchAsync(
+                new CurrentBranchPushRequest(options.RepositoryPath, filesToCommit, "docs: automated translation update", options.GitHubToken),
+                cancellationToken);
+            return null; // no PR to report a URL for - the caller's own branch/PR already exists
+        }
+
         var (owner, repositoryName) = ResolveRepository();
         var shortSha = diffAnalyzer.GetHeadShortSha(options.RepositoryPath);
         var branchName = $"doc-translator/{shortSha}";

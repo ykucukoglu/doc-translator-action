@@ -110,6 +110,105 @@ public sealed class GitWriterTests : IDisposable
         tip[Path.Combine("docs", "de", "guides", "deep", "nested.md").Replace('\\', '/')].Should().NotBeNull();
     }
 
+    [Fact]
+    public void CommitAndPushToCurrentBranch_WritesFilesAndPushesToRemoteOnTheCheckedOutBranch()
+    {
+        var repoRoot = NewWorkingRepo();
+        using var repo = new Repository(repoRoot);
+        var branchName = repo.Head.FriendlyName;
+
+        _sut.CommitAndPushToCurrentBranch(
+            repoRoot,
+            new Dictionary<string, string> { ["docs/tr/guide.md"] = "translated" },
+            "commit message", "author", "author@test.com", remoteToken: "dummy");
+
+        using var remote = new Repository(_remoteRoot);
+        var tip = remote.Branches[branchName].Tip;
+        ((Blob)tip[Path.Combine("docs", "tr", "guide.md").Replace('\\', '/')].Target)
+            .GetContentText().Should().Be("translated");
+    }
+
+    [Fact]
+    public void CommitAndPushToCurrentBranch_NeverCreatesADocTranslatorBranch()
+    {
+        var repoRoot = NewWorkingRepo();
+
+        _sut.CommitAndPushToCurrentBranch(
+            repoRoot,
+            new Dictionary<string, string> { ["docs/tr/guide.md"] = "translated" },
+            "commit message", "author", "author@test.com", remoteToken: "dummy");
+
+        using var remote = new Repository(_remoteRoot);
+        remote.Branches.Should().NotContain(b => b.FriendlyName.StartsWith("doc-translator/", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CommitAndPushToCurrentBranch_DetachedHead_ThrowsClearError()
+    {
+        var repoRoot = NewWorkingRepo();
+        using (var repo = new Repository(repoRoot))
+        {
+            Commands.Checkout(repo, repo.Head.Tip.Sha); // detach
+        }
+
+        var act = () => _sut.CommitAndPushToCurrentBranch(
+            repoRoot,
+            new Dictionary<string, string> { ["docs/tr/guide.md"] = "translated" },
+            "commit message", "author", "author@test.com", remoteToken: "dummy");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*detached HEAD*");
+    }
+
+    [Fact]
+    public void CommitAndPushToCurrentBranch_RemoteHasDivergedSinceCheckout_ThrowsRatherThanOverwriting()
+    {
+        // Someone else pushed to this same branch in the meantime - unlike CommitAndPush's
+        // deterministic, this-action-only branch, this method must never force through that and
+        // silently discard their commit.
+        var firstCheckout = NewWorkingRepo();
+        string branchName;
+        using (var repo = new Repository(firstCheckout))
+        {
+            branchName = repo.Head.FriendlyName;
+        }
+
+        _sut.CommitAndPushToCurrentBranch(
+            firstCheckout,
+            new Dictionary<string, string> { ["docs/tr/guide.md"] = "someone else's commit" },
+            "someone else's commit", "author", "author@test.com", remoteToken: "dummy");
+
+        // secondCheckout was cloned from the remote before the push above, so it's now behind.
+        var secondCheckout = NewWorkingRepoTrackingExistingBranch(branchName);
+
+        var act = () => _sut.CommitAndPushToCurrentBranch(
+            secondCheckout,
+            new Dictionary<string, string> { ["docs/tr/other.md"] = "a second, diverged commit" },
+            "a second, diverged commit", "author", "author@test.com", remoteToken: "dummy");
+
+        act.Should().Throw<LibGit2SharpException>();
+    }
+
+    /// <summary>A second working repo pointed at the same remote, but created (and so pinned to the remote's state) before <paramref name="branchName"/> received its latest commit - simulates a checkout that's now behind.</summary>
+    private string NewWorkingRepoTrackingExistingBranch(string branchName)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "doc-translator-work-" + Guid.NewGuid().ToString("N"));
+        _workingDirs.Add(dir);
+        Repository.Init(dir);
+
+        File.WriteAllText(Path.Combine(dir, "README.md"), "base");
+        using var repo = new Repository(dir);
+        Commands.Stage(repo, "README.md");
+        var sig = new Signature("test", "test@test.com", DateTimeOffset.Now);
+        repo.Commit("base", sig, sig);
+        if (repo.Head.FriendlyName != branchName)
+        {
+            repo.Branches.Rename(repo.Head, branchName);
+        }
+
+        repo.Network.Remotes.Add("origin", _remoteRoot);
+        return dir;
+    }
+
     private string NewWorkingRepo()
     {
         var dir = Path.Combine(Path.GetTempPath(), "doc-translator-work-" + Guid.NewGuid().ToString("N"));
