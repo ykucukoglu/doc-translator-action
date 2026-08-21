@@ -57,6 +57,9 @@ public sealed class ConfigFile
     [JsonPropertyName("llmProvider")]
     public string? LlmProvider { get; set; }
 
+    [JsonPropertyName("llmFallbackProvider")]
+    public string? LlmFallbackProvider { get; set; }
+
     [JsonPropertyName("geminiModel")]
     public string? GeminiModel { get; set; }
 

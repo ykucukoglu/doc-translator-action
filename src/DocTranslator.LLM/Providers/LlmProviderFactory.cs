@@ -16,11 +16,15 @@ public interface ILlmProviderFactory
 }
 
 /// <summary>
-/// Selects a provider from GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY and the optional
-/// INPUT_LLM_PROVIDER override, builds that provider's <see cref="IChatClient"/> via
-/// <see cref="IChatClientFactory"/>, and wraps it in the shared <see cref="ChatClientLlmTranslationService"/>.
+/// Selects a provider from GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY / AZURE_OPENAI_API_KEY
+/// and the optional INPUT_LLM_PROVIDER override, builds that provider's <see cref="IChatClient"/>
+/// via <see cref="IChatClientFactory"/>, and wraps it in the shared <see cref="ChatClientLlmTranslationService"/>.
 /// More than one key configured with no explicit provider is a hard configuration error - it is
 /// never silently resolved, since guessing wrong on a cost-bearing provider is worse than failing fast.
+///
+/// If INPUT_LLM_FALLBACK_PROVIDER names a second, different provider, the result is wrapped in
+/// <see cref="FallbackLlmTranslationService"/> instead - opt-in, since which provider a run ends up
+/// billing against should never be a silent inference from which keys happen to be configured.
 /// </summary>
 public sealed class LlmProviderFactory(
     IEnvironmentProvider environment,
@@ -71,8 +75,30 @@ public sealed class LlmProviderFactory(
         }
 
         var resolvedProvider = ResolveProvider(explicitProvider, configuredProviders);
+        var primary = BuildProviderService(resolvedProvider, geminiKey, openAiKey, claudeKey, azureOpenAiKey);
 
-        return resolvedProvider switch
+        var fallbackProvider = Normalize(environment.GetEnvironmentVariable("INPUT_LLM_FALLBACK_PROVIDER"));
+        if (string.IsNullOrEmpty(fallbackProvider))
+        {
+            return primary;
+        }
+
+        if (fallbackProvider == resolvedProvider)
+        {
+            throw new LlmTranslationException(
+                $"'llm-fallback-provider' ('{fallbackProvider}') must be different from the primary provider ('{resolvedProvider}').");
+        }
+
+        ILlmTranslationService fallback = fallbackProvider == "fake"
+            ? new FakeTranslationService()
+            : BuildProviderService(fallbackProvider, geminiKey, openAiKey, claudeKey, azureOpenAiKey);
+
+        return new FallbackLlmTranslationService(primary, fallback);
+    }
+
+    private ChatClientLlmTranslationService BuildProviderService(
+        string providerName, string? geminiKey, string? openAiKey, string? claudeKey, string? azureOpenAiKey) =>
+        providerName switch
         {
             "gemini" => BuildService("gemini", chatClientFactory.CreateGemini(
                 RequireKey(geminiKey, "GEMINI_API_KEY"), ModelOrDefault("INPUT_GEMINI_MODEL", DefaultGeminiModel))),
@@ -89,9 +115,8 @@ public sealed class LlmProviderFactory(
                 RequireKey(environment.GetEnvironmentVariable("INPUT_AZURE_OPENAI_DEPLOYMENT"), "azure-openai-deployment"))),
 
             _ => throw new LlmTranslationException(
-                $"Unknown 'llm-provider' value '{resolvedProvider}'. Expected one of: auto, gemini, openai, claude, azure-openai, fake."),
+                $"Unknown provider '{providerName}'. Expected one of: gemini, openai, claude, azure-openai."),
         };
-    }
 
     private static string ResolveProvider(string? explicitProvider, List<string> configuredProviders)
     {

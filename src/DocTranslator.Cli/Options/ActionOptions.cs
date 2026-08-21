@@ -19,6 +19,9 @@ public sealed class ActionOptions
 
     public string LlmProvider { get; init; } = "auto";
 
+    /// <summary>When set, retried against once if the primary provider's translation call fails after exhausting its own retries. Must name a different provider than the resolved primary.</summary>
+    public string? LlmFallbackProvider { get; init; }
+
     public string? GeminiModel { get; init; }
 
     public string? OpenAiModel { get; init; }

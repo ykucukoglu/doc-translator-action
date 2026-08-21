@@ -95,6 +95,7 @@ public static class ActionOptionsBinder
             AzureOpenAiEndpoint = ReadInput("azure-openai-endpoint"),
             AzureOpenAiDeployment = ReadInput("azure-openai-deployment"),
             LlmProvider = llmProvider,
+            LlmFallbackProvider = ReadInput("llm-fallback-provider") ?? config?.LlmFallbackProvider,
             GeminiModel = ReadInput("gemini-model") ?? config?.GeminiModel,
             OpenAiModel = ReadInput("openai-model") ?? config?.OpenAiModel,
             ClaudeModel = ReadInput("claude-model") ?? config?.ClaudeModel,
@@ -133,6 +134,7 @@ public static class ActionOptionsBinder
         SetIfPresent("INPUT_AZURE_OPENAI_ENDPOINT", options.AzureOpenAiEndpoint);
         SetIfPresent("INPUT_AZURE_OPENAI_DEPLOYMENT", options.AzureOpenAiDeployment);
         SetIfPresent("INPUT_LLM_PROVIDER", options.LlmProvider);
+        SetIfPresent("INPUT_LLM_FALLBACK_PROVIDER", options.LlmFallbackProvider);
         SetIfPresent("INPUT_GEMINI_MODEL", options.GeminiModel);
         SetIfPresent("INPUT_OPENAI_MODEL", options.OpenAiModel);
         SetIfPresent("INPUT_CLAUDE_MODEL", options.ClaudeModel);

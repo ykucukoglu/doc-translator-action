@@ -132,6 +132,7 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `azure-openai-endpoint` | — | Azure OpenAI resource endpoint, e.g. `https://your-resource.openai.azure.com/`. |
 | `azure-openai-deployment` | — | Azure OpenAI deployment name (chosen when the model was deployed, not necessarily the model id). |
 | `llm-provider` | `auto` | `auto`, `gemini`, `openai`, `claude`, `azure-openai`, or `fake`. Must be set explicitly if more than one `*-api-key` is configured. |
+| `llm-fallback-provider` | — | A second provider to retry against once if `llm-provider` fails after exhausting its own retries. Must differ from the primary and have its own credentials set. |
 | `gemini-model` | `gemini-2.5-flash` | Gemini model id. |
 | `openai-model` | `gpt-5-mini` | OpenAI model id. |
 | `claude-model` | `claude-sonnet-5` | Claude model id. |
@@ -139,7 +140,7 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `source-path` | `docs` | Root folder to scan for documentation. |
 | `include-glob` | `**/*.md` | Glob (relative to `source-path`) selecting which files to translate. |
 | `glossary-path` | `.doc-terms.json` | Path to the glossary file - see [Glossary](#glossary). |
-| `config-path` | — | Path to a JSON file supplying any of `targetLanguages`, `sourcePath`, `includeGlob`, `glossaryPath`, `outputPathTemplate`, `baseBranch`, `failOnStaleTranslations`, `backfillMissingTranslations`, `estimateCostOnly`, `maxParallelRequests`, `cleanupStaleBranches`, `sourceLanguage`, `maxBatchTokens`, `llmProvider`, `geminiModel`, `openAiModel`, `claudeModel` - lets advanced setups avoid a large `with:` block. Explicit inputs always win over the config file. (`allow-fork-pull-request-target` is deliberately not supported here - see below.) |
+| `config-path` | — | Path to a JSON file supplying any of `targetLanguages`, `sourcePath`, `includeGlob`, `glossaryPath`, `outputPathTemplate`, `baseBranch`, `failOnStaleTranslations`, `backfillMissingTranslations`, `estimateCostOnly`, `maxParallelRequests`, `cleanupStaleBranches`, `sourceLanguage`, `maxBatchTokens`, `llmProvider`, `llmFallbackProvider`, `geminiModel`, `openAiModel`, `claudeModel` - lets advanced setups avoid a large `with:` block. Explicit inputs always win over the config file. (`allow-fork-pull-request-target` is deliberately not supported here - see below.) |
 | `output-path-template` | `docs/{lang}/{relativePath}` | Supports `{lang}`, `{relativePath}`, `{dir}`, `{filename}`, `{ext}` - see the Quick start snippets above. |
 | `base-branch` | *(auto)* | Base branch to diff against and open the PR into. Defaults to `GITHUB_BASE_REF` on `pull_request` events, or the previous commit on `push`. |
 | `pr-mode` | `true` | When `true`, pushes a branch and opens a PR. When `false`, writes translated files locally only - no `github-token` required. |

@@ -28,6 +28,9 @@ inputs:
     description: "Which LLM provider to use: auto, gemini, openai, claude, azure-openai, or fake. 'auto' requires exactly one of the *-api-key inputs to be set; if more than one is set, llm-provider must be set explicitly."
     required: false
     default: 'auto'
+  llm-fallback-provider:
+    description: 'Second provider (gemini, openai, claude, azure-openai, or fake) to retry against once if the primary llm-provider fails after exhausting its own retries (rate limit, outage, quota). Must be different from the primary; requires that provider''s own credentials to also be set. Off by default.'
+    required: false
   gemini-model:
     description: 'Gemini model id.'
     required: false
@@ -57,7 +60,7 @@ inputs:
     required: false
     default: '.doc-terms.json'
   config-path:
-    description: 'Path to an optional JSON config file supplying any of target-languages, source-path, include-glob, glossary-path, output-path-template, base-branch, fail-on-stale-translations, backfill-missing-translations, estimate-cost-only, max-parallel-requests, cleanup-stale-branches, source-language, max-batch-tokens, llm-provider, gemini-model, openai-model, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file. Note: allow-fork-pull-request-target is deliberately NOT supported here - see its own description below.'
+    description: 'Path to an optional JSON config file supplying any of target-languages, source-path, include-glob, glossary-path, output-path-template, base-branch, fail-on-stale-translations, backfill-missing-translations, estimate-cost-only, max-parallel-requests, cleanup-stale-branches, source-language, max-batch-tokens, llm-provider, llm-fallback-provider, gemini-model, openai-model, claude-model - lets advanced setups avoid a large `with:` block. Explicit inputs always take priority over the config file. Note: allow-fork-pull-request-target is deliberately NOT supported here - see its own description below.'
     required: false
   output-path-template:
     description: 'Template for translated file output paths. Supports {lang}, {relativePath}, {dir}, {filename}, {ext} - e.g. "{dir}/{filename}.{lang}.{ext}" for MkDocs/Docusaurus-style co-located naming.'

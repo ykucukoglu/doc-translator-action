@@ -5,6 +5,7 @@ using DocTranslator.LLM.Exceptions;
 using DocTranslator.LLM.Prompting;
 using DocTranslator.LLM.Providers;
 using DocTranslator.LLM.Retry;
+using DocTranslator.LLM.Services;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Moq;
@@ -89,6 +90,63 @@ public class LlmProviderFactoryTests
         var act = sut.Create;
 
         act.Should().Throw<LlmTranslationException>().WithMessage("*azure-openai-endpoint*");
+    }
+
+    [Fact]
+    public void Create_FallbackProviderConfigured_ReturnsFallbackWrapperReportingPrimaryProviderName()
+    {
+        var sut = BuildSut(new Dictionary<string, string>
+        {
+            ["GEMINI_API_KEY"] = "g-key",
+            ["ANTHROPIC_API_KEY"] = "a-key",
+            ["INPUT_LLM_PROVIDER"] = "gemini",
+            ["INPUT_LLM_FALLBACK_PROVIDER"] = "claude",
+        });
+
+        var service = sut.Create();
+
+        service.Should().BeOfType<FallbackLlmTranslationService>();
+        service.ProviderName.Should().Be("gemini");
+    }
+
+    [Fact]
+    public void Create_FallbackProviderSameAsPrimary_Throws()
+    {
+        var sut = BuildSut(new Dictionary<string, string>
+        {
+            ["GEMINI_API_KEY"] = "g-key",
+            ["INPUT_LLM_PROVIDER"] = "gemini",
+            ["INPUT_LLM_FALLBACK_PROVIDER"] = "gemini",
+        });
+
+        var act = sut.Create;
+
+        act.Should().Throw<LlmTranslationException>().WithMessage("*must be different from the primary provider*");
+    }
+
+    [Fact]
+    public void Create_FallbackProviderFake_DoesNotRequireASecondRealKey()
+    {
+        var sut = BuildSut(new Dictionary<string, string>
+        {
+            ["GEMINI_API_KEY"] = "g-key",
+            ["INPUT_LLM_PROVIDER"] = "gemini",
+            ["INPUT_LLM_FALLBACK_PROVIDER"] = "fake",
+        });
+
+        var act = sut.Create;
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void Create_NoFallbackProviderConfigured_ReturnsPlainService()
+    {
+        var sut = BuildSut(new Dictionary<string, string> { ["GEMINI_API_KEY"] = "g-key" });
+
+        var service = sut.Create();
+
+        service.Should().NotBeOfType<FallbackLlmTranslationService>();
     }
 
     [Fact]
