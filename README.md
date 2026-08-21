@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/9.0)
 
-A GitHub Action that translates Markdown documentation into multiple target languages on push or pull request, without breaking code snippets, inline variables, HTML, technical URLs, or YAML frontmatter.
+A GitHub Action that translates Markdown documentation into multiple target languages on push or pull request, without breaking code snippets, inline variables, HTML, technical URLs, or YAML/TOML frontmatter.
 
 Markdown is parsed into a real AST via [Markdig](https://github.com/xoofx/markdig); only natural-language text nodes (paragraphs, headings, table cells, list items, blockquotes) are extracted and sent to an LLM, while code blocks, inline code, raw HTML, link/image targets, and a leading frontmatter block are never touched. Translated text is spliced back into the exact AST position it came from and re-rendered to Markdown. See [docs/architecture.md](docs/architecture.md) for the full pipeline.
 
@@ -20,7 +20,7 @@ Markdown is parsed into a real AST via [Markdig](https://github.com/xoofx/markdi
 - 🔁 **Resilient & concurrent** — Polly v8 exponential backoff on transient HTTP failures; batch requests run concurrently, bounded by `max-parallel-requests`.
 - 🕵️ **Drift detection** — flags translated files whose source has changed since they were last translated.
 - 🚫 **`.doc-ignore`** — exclude files like `CHANGELOG.md` or `DRAFT_*.md` from the pipeline entirely.
-- 📄 **Frontmatter & admonitions aware** — YAML frontmatter and Docusaurus/MyST `::: note ... :::` blocks are recognized structurally, not swept into translatable text like an ordinary paragraph.
+- 📄 **Frontmatter & admonitions aware** — YAML/TOML frontmatter and Docusaurus/MyST `::: note ... :::` blocks are recognized structurally, not swept into translatable text like an ordinary paragraph.
 
 ## Quick start
 

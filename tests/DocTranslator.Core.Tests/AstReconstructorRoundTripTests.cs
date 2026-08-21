@@ -35,6 +35,7 @@ public class AstReconstructorRoundTripTests
     [InlineData("html-blocks.md")]
     [InlineData("frontmatter.md")]
     [InlineData("admonitions.md")]
+    [InlineData("toml-frontmatter.md")]
     public async Task Reconstruct_AnyFixture_DoesNotThrowAndProducesNonEmptyOutput(string fixtureName)
     {
         var markdown = Fixtures.Load(fixtureName);
@@ -243,5 +244,23 @@ public class AstReconstructorRoundTripTests
 
         // The closing fence must land on its own line, not glued onto the translated text.
         outcome.Markdown.Replace("\r\n", "\n").Should().Contain("⟫\n:::");
+    }
+
+    [Fact]
+    public async Task Reconstruct_TomlFrontmatter_SurvivesVerbatimAndStaysBeforeProvenanceHeader()
+    {
+        var markdown = Fixtures.Load("toml-frontmatter.md");
+        var context = _parser.ParseAndExtractChunks("toml-frontmatter.md", markdown);
+        var translated = FakeTranslate(context.Chunks);
+        var provenance = new TranslationProvenance("abc123", "toml-frontmatter.md", "de", DateTimeOffset.UtcNow);
+
+        var outcome = await ReconstructAsync(context, translated, provenance);
+        var normalized = outcome.Markdown.Replace("\r\n", "\n");
+
+        normalized.Should().StartWith("+++\ntitle = \"Getting Started\"");
+        normalized.Should().Contain("weight = 1\n+++");
+        normalized.IndexOf("weight", StringComparison.Ordinal)
+            .Should().BeLessThan(normalized.IndexOf("doc-translator: source-hash", StringComparison.Ordinal));
+        normalized.Should().NotContain("⟪title"); // frontmatter itself was never sent for translation
     }
 }

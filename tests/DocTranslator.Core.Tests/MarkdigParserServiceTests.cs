@@ -90,6 +90,21 @@ public class MarkdigParserServiceTests
     }
 
     [Fact]
+    public void ParseAndExtractChunks_TomlFrontmatter_NeverLeaksIntoChunksAndIsCapturedVerbatim()
+    {
+        var markdown = Fixtures.Load("toml-frontmatter.md");
+
+        var context = _sut.ParseAndExtractChunks("toml-frontmatter.md", markdown);
+
+        var allSourceText = string.Join('\n', context.Chunks.Select(c => c.SourceText));
+        allSourceText.Should().NotContain("weight");
+        allSourceText.Should().NotContain("guide to get started"); // description field
+
+        context.FrontmatterRawText?.Replace("\r\n", "\n").Should().Be(
+            "+++\ntitle = \"Getting Started\"\ndescription = \"A guide to get started with the project\"\nweight = 1\n+++");
+    }
+
+    [Fact]
     public void ParseAndExtractChunks_NoFrontmatter_FrontmatterRawTextIsNull()
     {
         var context = _sut.ParseAndExtractChunks("a.md", "# Title\n\nBody text.\n");

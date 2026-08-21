@@ -100,6 +100,18 @@ public class DriftDetectorTests : IDisposable
     }
 
     [Fact]
+    public void TryParseHeader_HeaderPrecededByTomlFrontmatter_StillFound()
+    {
+        var provenance = new TranslationProvenance("abc123", "docs/guide.md", "fr", DateTimeOffset.UtcNow);
+        var content = "+++\ntitle = \"Foo\"\n+++\n\n" + provenance.ToHeaderComment() + "\n\n# Foo\n\nBody.\n";
+
+        var parsed = _sut.TryParseHeader(content);
+
+        parsed.Should().NotBeNull();
+        parsed!.SourceContentHash.Should().Be("abc123");
+    }
+
+    [Fact]
     public void CheckDrift_HashMatchesWithFrontmatterPresent_IsNotStale()
     {
         File.WriteAllText(_tempFile, "# Hello\n\nSource content.\n");

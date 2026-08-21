@@ -91,21 +91,22 @@ public sealed class DriftDetector : IDriftDetector
     }
 
     /// <summary>
-    /// The header line is the first non-blank line, except when the file opens with a YAML
-    /// frontmatter fence (a line that is exactly <c>---</c>) - AstReconstructor always keeps
-    /// frontmatter as the file's very first bytes (required for it to be recognized as metadata at
-    /// all) and writes the header just after it, so the search skips past the closing fence first.
-    /// String-based, not a real YAML parse - this only needs to recognize the exact shape this
-    /// codebase itself produces, not arbitrary frontmatter.
+    /// The header line is the first non-blank line, except when the file opens with a YAML (<c>---</c>)
+    /// or TOML (<c>+++</c>) frontmatter fence - AstReconstructor always keeps frontmatter as the
+    /// file's very first bytes (required for it to be recognized as metadata at all) and writes the
+    /// header just after it, so the search skips past the closing fence first. String-based, not a
+    /// real YAML/TOML parse - this only needs to recognize the exact shape this codebase itself
+    /// produces, not arbitrary frontmatter.
     /// </summary>
     private static string? FindHeaderLine(string content)
     {
         var lines = content.Split('\n');
         var start = 0;
 
-        if (lines.Length > 0 && lines[0].TrimEnd('\r') == "---")
+        if (lines.Length > 0 && (lines[0].TrimEnd('\r') is "---" or "+++"))
         {
-            var closingFenceIndex = Array.FindIndex(lines, 1, line => line.TrimEnd('\r') == "---");
+            var fence = lines[0].TrimEnd('\r');
+            var closingFenceIndex = Array.FindIndex(lines, 1, line => line.TrimEnd('\r') == fence);
             if (closingFenceIndex >= 0)
             {
                 start = closingFenceIndex + 1;

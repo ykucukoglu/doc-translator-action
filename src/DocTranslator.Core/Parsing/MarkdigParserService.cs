@@ -14,7 +14,7 @@ public interface IMarkdigParserService
     /// <summary>
     /// Parses a Markdown document, walks its AST, and extracts one <see cref="TranslationChunk"/>
     /// per translatable leaf block. Code blocks, fenced code blocks, raw HTML blocks, thematic
-    /// breaks, and YAML frontmatter are skipped entirely and never touched.
+    /// breaks, and YAML/TOML frontmatter are skipped entirely and never touched.
     /// </summary>
     DocumentTranslationContext ParseAndExtractChunks(string sourceFilePath, string markdownText);
 }
@@ -25,16 +25,23 @@ public sealed class MarkdigParserService : IMarkdigParserService
 
     public DocumentTranslationContext ParseAndExtractChunks(string sourceFilePath, string markdownText)
     {
-        var document = Markdown.Parse(markdownText, MarkdigConfiguration.Pipeline);
+        // Markdig's UseYamlFrontMatter() only recognizes `---`-delimited YAML - Hugo's `+++`-delimited
+        // TOML frontmatter has no native Markdig support at all, so it's stripped here, before
+        // Markdig ever parses the text, or its key/value lines would be parsed as an ordinary
+        // paragraph and sent to the LLM as translatable text (the same failure mode YAML frontmatter
+        // had before UseYamlFrontMatter() was enabled).
+        var (bodyText, tomlFrontmatterRawText) = ExtractTomlFrontmatterIfPresent(markdownText);
+        var document = Markdown.Parse(bodyText, MarkdigConfiguration.Pipeline);
 
         // Markdig's normalizing renderer doesn't round-trip a YamlFrontMatterBlock's `---`
         // delimiters correctly (it's an HtmlBlock subclass, rendered as raw HTML lines with no
         // fence re-added) - captured verbatim here and removed from the tree so RenderDocument
         // never touches it; AstReconstructor splices this text back onto the output directly.
-        string? frontmatterRawText = null;
-        if (document.Count > 0 && document[0] is YamlFrontMatterBlock frontmatter)
+        // Mutually exclusive with TOML frontmatter - a file has one frontmatter format, not both.
+        var frontmatterRawText = tomlFrontmatterRawText;
+        if (frontmatterRawText is null && document.Count > 0 && document[0] is YamlFrontMatterBlock frontmatter)
         {
-            frontmatterRawText = markdownText.Substring(frontmatter.Span.Start, frontmatter.Span.Length);
+            frontmatterRawText = bodyText.Substring(frontmatter.Span.Start, frontmatter.Span.Length);
             document.RemoveAt(0);
         }
 
@@ -132,6 +139,32 @@ public sealed class MarkdigParserService : IMarkdigParserService
 
         chunks.Add(chunk);
         reconstructionMap[chunkId] = reconstructionContext;
+    }
+
+    /// <summary>
+    /// String-based, not a real TOML parse - only needs to recognize the fence shape (a line that
+    /// is exactly <c>+++</c>, opening and closing), not validate what's between them. Splitting and
+    /// rejoining on '\n' is lossless here: <see cref="string.Split(char[])"/> leaves a trailing '\r'
+    /// on each line untouched, so re-joining the captured lines with '\n' reproduces the original
+    /// bytes exactly, CRLF included.
+    /// </summary>
+    private static (string BodyText, string? FrontmatterRawText) ExtractTomlFrontmatterIfPresent(string markdownText)
+    {
+        var lines = markdownText.Split('\n');
+        if (lines.Length == 0 || lines[0].TrimEnd('\r') != "+++")
+        {
+            return (markdownText, null);
+        }
+
+        var closingFenceIndex = Array.FindIndex(lines, 1, line => line.TrimEnd('\r') == "+++");
+        if (closingFenceIndex < 0)
+        {
+            return (markdownText, null);
+        }
+
+        var frontmatterRawText = string.Join('\n', lines[..(closingFenceIndex + 1)]);
+        var bodyText = string.Join('\n', lines[(closingFenceIndex + 1)..]);
+        return (bodyText, frontmatterRawText);
     }
 
     internal static string ComputeHash(string text)
