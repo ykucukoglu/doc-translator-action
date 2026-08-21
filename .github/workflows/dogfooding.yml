@@ -34,6 +34,20 @@ jobs:
         with:
           fetch-depth: 2 # doc-translator-action diffs against the previous commit / base ref
 
+      # .doc-translator-cache is a per-file/per-language/per-content-hash manifest of chunks
+      # already translated - it's write-only local state on a fresh checkout, so without this
+      # step it would be built up and then discarded every single run, providing zero savings
+      # across runs. restore-keys falls back to the most recent cache under this key prefix even
+      # though the exact key (this run's id) never matches on restore, and a fresh cache is always
+      # saved at the end of the job.
+      - name: Restore translation cache
+        uses: actions/cache@v4
+        with:
+          path: .doc-translator-cache
+          key: doc-translator-cache-${{ github.run_id }}
+          restore-keys: |
+            doc-translator-cache-
+
       # Computed in shell, not a GitHub Actions `A && B || C` expression: that pattern is a known
       # trap when B can itself be a falsy value (like this false/false case) - it falls through to
       # C exactly like JavaScript's `&&`/`||` ternary emulation does, so it's unreliable here.
