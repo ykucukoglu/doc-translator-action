@@ -24,6 +24,7 @@ Everything below is pending the first tagged release (`v1.0.0`).
 - `DocTranslator.GitHub.Tests`: diff analyzer and git-write mechanics tests against real throwaway repos.
 - `estimate-cost-only` input: reports an estimated input-token count for the run (skipping anything already cached) and exits, with no LLM call and no git/GitHub access.
 - Fork `pull_request_target` safety: automatically forces a dry run when triggered by that event/fork-PR combination, regardless of `pr-mode`, unless the `allow-fork-pull-request-target: true` action input is set explicitly (deliberately not readable from `config-path`, which can be fork-controlled content in this exact scenario).
+- `cleanup-stale-branches` input (default `true`): deletes this action's own `doc-translator/<sha>` branches once their pull request is closed (merged or declined), so re-runs don't leave an ever-growing pile of dead branches behind. Scoped to that name prefix and to branches with a known closed PR - a branch with no matching PR is left alone.
 
 ### Fixed
 

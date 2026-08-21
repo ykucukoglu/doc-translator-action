@@ -14,7 +14,8 @@ public sealed record GitHubPushRequest(
     string PullRequestTitle,
     string PullRequestBody,
     string? SummaryComment,
-    string Token);
+    string Token,
+    bool CleanupStaleBranches = true);
 
 public sealed record PullRequestOutcome(string Url, int Number, bool WasCreated);
 
@@ -72,7 +73,55 @@ public sealed class OctokitGitHubService(IGitWriter gitWriter) : IGitHubService
             await client.Issue.Comment.Create(request.Owner, request.RepositoryName, outcome.Number, request.SummaryComment);
         }
 
+        if (request.CleanupStaleBranches)
+        {
+            // Best-effort housekeeping, not the point of this run - a failure here (permissions,
+            // API hiccup) shouldn't fail a PR that was otherwise opened/updated successfully.
+            try
+            {
+                await CleanupStaleBranchesAsync(client, request, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Console.WriteLine($"::warning::Stale doc-translator/* branch cleanup failed, continuing: {ex.Message}");
+            }
+        }
+
         return outcome;
+    }
+
+    /// <summary>
+    /// Deletes this action's own <c>doc-translator/&lt;sha&gt;</c> branches once their pull request
+    /// is closed (merged or declined) - left alone otherwise, this action opens a new branch every
+    /// run and nothing ever removes the old ones. Scoped strictly to that name prefix and to
+    /// branches with a known closed PR; a branch with no matching PR at all is left untouched
+    /// rather than guessed at, and the branch this run just pushed to is never a candidate.
+    /// </summary>
+    private static async Task CleanupStaleBranchesAsync(GitHubClient client, GitHubPushRequest request, CancellationToken cancellationToken)
+    {
+        var closedPrHeadBranches = (await client.PullRequest.GetAllForRepository(
+                request.Owner,
+                request.RepositoryName,
+                new PullRequestRequest { State = ItemStateFilter.Closed }))
+            .Select(pr => pr.Head.Ref)
+            .ToHashSet(StringComparer.Ordinal);
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var branches = await client.Repository.Branch.GetAll(request.Owner, request.RepositoryName);
+
+        foreach (var branch in branches)
+        {
+            if (!branch.Name.StartsWith("doc-translator/", StringComparison.Ordinal)
+                || branch.Name == request.BranchName
+                || !closedPrHeadBranches.Contains(branch.Name))
+            {
+                continue;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            await client.Git.Reference.Delete(request.Owner, request.RepositoryName, $"heads/{branch.Name}");
+        }
     }
 
     private static async Task<PullRequestOutcome> CreatePullRequestAsync(GitHubClient client, GitHubPushRequest request)

@@ -105,6 +105,7 @@ public static class ActionOptionsBinder
             BackfillMissingTranslations = cli.BackfillMissingTranslations ?? ParseBool(ReadInput("backfill-missing-translations")) ?? config?.BackfillMissingTranslations ?? false,
             EstimateCostOnly = estimateCostOnly,
             MaxParallelRequests = cli.MaxParallelRequests ?? ParseInt(ReadInput("max-parallel-requests")) ?? config?.MaxParallelRequests ?? 4,
+            CleanupStaleBranches = ParseBool(ReadInput("cleanup-stale-branches")) ?? config?.CleanupStaleBranches ?? true,
             RepositoryPath = repositoryPath,
         };
     }

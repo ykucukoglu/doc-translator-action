@@ -136,6 +136,29 @@ public sealed class ActionOptionsBinderTests : IDisposable
     }
 
     [Fact]
+    public void Bind_CleanupStaleBranches_DefaultsToTrue()
+    {
+        Set("INPUT_PR-MODE", "false");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.CleanupStaleBranches.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Bind_CleanupStaleBranchesFalse_IsRespected()
+    {
+        Set("INPUT_PR-MODE", "false");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+        Set("INPUT_CLEANUP-STALE-BRANCHES", "false");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.CleanupStaleBranches.Should().BeFalse();
+    }
+
+    [Fact]
     public void Bind_RegularPullRequestEvent_DoesNotForceDryRun()
     {
         Set("GITHUB_EVENT_NAME", "pull_request");

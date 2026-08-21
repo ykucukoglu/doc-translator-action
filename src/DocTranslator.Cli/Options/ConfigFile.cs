@@ -45,6 +45,9 @@ public sealed class ConfigFile
     [JsonPropertyName("maxParallelRequests")]
     public int? MaxParallelRequests { get; set; }
 
+    [JsonPropertyName("cleanupStaleBranches")]
+    public bool? CleanupStaleBranches { get; set; }
+
     [JsonPropertyName("llmProvider")]
     public string? LlmProvider { get; set; }
 

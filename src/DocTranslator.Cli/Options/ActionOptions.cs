@@ -53,5 +53,12 @@ public sealed class ActionOptions
     /// <summary>Bounds how many LLM batch requests run concurrently (per file/language). See <c>SemaphoreSlim</c> usage in ChatClientLlmTranslationService.</summary>
     public int MaxParallelRequests { get; init; } = 4;
 
+    /// <summary>
+    /// When true (default), deletes this action's own <c>doc-translator/&lt;sha&gt;</c> branches once
+    /// their pull request is closed (merged or declined) - otherwise a new branch accumulates every
+    /// run and nothing ever removes the old ones.
+    /// </summary>
+    public bool CleanupStaleBranches { get; init; } = true;
+
     public string RepositoryPath { get; init; } = Directory.GetCurrentDirectory();
 }
