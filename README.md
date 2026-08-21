@@ -77,6 +77,20 @@ Docusaurus expects translated content under `i18n/<locale>/docusaurus-plugin-con
           output-path-template: 'i18n/{lang}/docusaurus-plugin-content-docs/current/{relativePath}'
 ```
 
+### Astro Starlight
+
+Starlight expects non-default-locale content under `src/content/docs/<locale>/...`:
+
+```yaml
+      - uses: ykucukoglu/doc-translator-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          target-languages: tr,de
+          source-path: src/content/docs
+          output-path-template: 'src/content/docs/{lang}/{relativePath}'
+```
+
 ### MkDocs (co-located, e.g. mkdocs-static-i18n)
 
 Translated files sit next to the source, differentiated by a locale suffix (`guide.md` → `guide.de.md`):
@@ -155,7 +169,7 @@ Running `DocTranslator.Cli` directly (outside the Action) reads plain, unprefixe
 
 - **Self-healing AST reconstruction**: if a translated chunk drops a required placeholder (`⟦CODE0⟧`) or tag (`<em0>...</em0>`), that one chunk is re-translated with a repair prompt (up to 2 attempts) before falling back to leaving just that paragraph in the source language - one bad LLM response never corrupts the document or aborts the whole file.
 - **`.doc-ignore`**: a `.gitignore`-style file at the repo root (one glob per line, `#` comments) excludes files from translation entirely, e.g. `CHANGELOG.md` or `DRAFT_*.md`. See the sample file in this repo.
-- **Flexible output paths**: see the Docusaurus/MkDocs snippets above.
+- **Flexible output paths**: see the Docusaurus/Starlight/MkDocs snippets above.
 
 ## Observability & reliability
 
