@@ -2,6 +2,7 @@
 
 [![Build](https://github.com/ykucukoglu/doc-translator-action/actions/workflows/ci.yml/badge.svg)](https://github.com/ykucukoglu/doc-translator-action/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/ykucukoglu/doc-translator-action/actions/workflows/codeql.yml/badge.svg)](https://github.com/ykucukoglu/doc-translator-action/actions/workflows/codeql.yml)
+[![Dogfooding](https://github.com/ykucukoglu/doc-translator-action/actions/workflows/dogfooding.yml/badge.svg)](https://github.com/ykucukoglu/doc-translator-action/actions/workflows/dogfooding.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/9.0)
 
@@ -37,6 +38,7 @@ on:
 jobs:
   translate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write

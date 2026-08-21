@@ -25,6 +25,7 @@ on:
 jobs:
   translate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15 # a stuck LLM request otherwise burns CI minutes up to GitHub's 360-minute job default
     permissions:
       contents: write
       pull-requests: write
