@@ -2,10 +2,12 @@
 
 `doc-translator-action` is a .NET 9 GitHub Action split into four layers, each with a single responsibility and a strict dependency direction: `Cli` depends on `LLM` and `GitHub`, both of which depend on `Core`, and `Core` depends on nothing outside the .NET BCL and Markdig.
 
-```
-DocTranslator.Cli  ──depends on──▶  DocTranslator.LLM     ──┐
-       │                                                     ├──▶  DocTranslator.Core
-       └──────────depends on──────▶  DocTranslator.GitHub ──┘
+```mermaid
+flowchart LR
+    Cli[DocTranslator.Cli] --> LLM[DocTranslator.LLM]
+    Cli --> GitHub[DocTranslator.GitHub]
+    LLM --> Core[DocTranslator.Core]
+    GitHub --> Core
 ```
 
 ## Why an AST, not regex
@@ -13,6 +15,17 @@ DocTranslator.Cli  ──depends on──▶  DocTranslator.LLM     ──┐
 Markdown translation tools that operate on raw text or regular expressions eventually mistranslate something inside a code fence, mangle a URL, or drift a closing tag out of position. `doc-translator-action` instead parses every source file into a real Abstract Syntax Tree via [Markdig](https://github.com/xoofx/markdig), so "is this text translatable" is a question the parser already answered - not a pattern we're guessing at.
 
 ## The pipeline
+
+```mermaid
+flowchart LR
+    A[Git diff] --> B[AST parse &<br/>chunk extraction]
+    B --> C{Cached?}
+    C -->|yes| E[Reconstruction]
+    C -->|no| D[LLM translate]
+    D -->|marker missing| D
+    D --> E
+    E --> F[Write & open PR]
+```
 
 1. **Git diff** (`DocTranslator.GitHub`) - `LibGit2Sharp` diffs the triggering commit against its base, filtered by `include-glob` and `.doc-ignore`, so only files that actually changed are parsed at all.
 2. **AST parse & chunk extraction** (`DocTranslator.Core`) - `MarkdigParserService` walks the AST and extracts one `TranslationChunk` per translatable leaf block (paragraph, heading, table cell, list item, blockquote). Within a chunk, non-text inlines (code spans, autolinks, raw HTML, line breaks) become atomic placeholder tokens like `⟦CODE0⟧`, and inlines whose *children* are translatable but whose wrapper carries metadata (emphasis, links) become paired tags like `<em0>...</em0>`. Code blocks and raw HTML blocks are skipped entirely and never touched.
