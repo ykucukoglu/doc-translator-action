@@ -47,7 +47,7 @@ Every setting resolves in the same order regardless of source: an explicit CLI f
 
 ## Observability
 
-Every run produces: a GitHub Actions Job Summary (`GITHUB_STEP_SUMMARY`) with per-language chunk/cache counts and token usage, `::group::`/`::warning::`/`::error::` workflow-command annotations for per-file processing and glossary/reconstruction issues, and a PR comment summarizing the same.
+Every run produces: a GitHub Actions Job Summary (`GITHUB_STEP_SUMMARY`) with per-language chunk/cache counts and token usage, `::group::`/`::warning::`/`::error::` workflow-command annotations for per-file processing and glossary/reconstruction issues, and a PR comment (`PrSummaryBuilder`) summarizing the same plus a count of code blocks/links/glossary terms preserved untouched, a mention of the triggering `GITHUB_ACTOR`, and a side-by-side original/translated preview (first 3 chunks per file, capped at 5 file/language pairs) in a collapsible `<details>` block, so a reviewer can sanity-check quality without opening every file.
 
 ## Solution layout
 

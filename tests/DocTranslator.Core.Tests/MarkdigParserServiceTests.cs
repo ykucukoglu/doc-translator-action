@@ -127,6 +127,24 @@ public class MarkdigParserServiceTests
     }
 
     [Fact]
+    public void ParseAndExtractChunks_FencedCodeBlocks_CountsThem()
+    {
+        var markdown = Fixtures.Load("fenced-code-blocks.md");
+
+        var context = _sut.ParseAndExtractChunks("fenced-code-blocks.md", markdown);
+
+        context.CodeBlockCount.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void ParseAndExtractChunks_NoCodeBlocks_CodeBlockCountIsZero()
+    {
+        var context = _sut.ParseAndExtractChunks("a.md", "# Title\n\nJust prose, no code.\n");
+
+        context.CodeBlockCount.Should().Be(0);
+    }
+
+    [Fact]
     public void ParseAndExtractChunks_SameSourceText_ProducesSameContentHash()
     {
         var context = _sut.ParseAndExtractChunks("a.md", "# Title\n\nSame text.\n");

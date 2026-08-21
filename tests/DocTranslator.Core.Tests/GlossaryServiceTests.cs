@@ -148,4 +148,34 @@ public class GlossaryServiceTests
 
         warnings.Should().BeEmpty();
     }
+
+    [Fact]
+    public void FindPreservedTerms_TermSurvivesInTranslation_IsReported()
+    {
+        var glossary = new GlossaryContext(new HashSet<string> { "GitHub", "API" }, new Dictionary<string, IReadOnlyDictionary<string, string>>(), CaseSensitive: false);
+
+        var preserved = _sut.FindPreservedTerms("Clone the GitHub repository and call the API.", "GitHub deposunu klonlayın ve API'yi çağırın.", glossary);
+
+        preserved.Should().BeEquivalentTo(["GitHub", "API"]);
+    }
+
+    [Fact]
+    public void FindPreservedTerms_TermDroppedFromTranslation_IsNotReported()
+    {
+        var glossary = new GlossaryContext(new HashSet<string> { "GitHub" }, new Dictionary<string, IReadOnlyDictionary<string, string>>(), CaseSensitive: false);
+
+        var preserved = _sut.FindPreservedTerms("Clone the GitHub repository.", "Depoyu klonlayın.", glossary);
+
+        preserved.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void FindPreservedTerms_TermNotInSource_IsNotReported()
+    {
+        var glossary = new GlossaryContext(new HashSet<string> { "API" }, new Dictionary<string, IReadOnlyDictionary<string, string>>(), CaseSensitive: false);
+
+        var preserved = _sut.FindPreservedTerms("Nothing relevant here.", "Nichts Relevantes hier.", glossary);
+
+        preserved.Should().BeEmpty();
+    }
 }

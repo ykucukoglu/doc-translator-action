@@ -21,6 +21,7 @@ Markdown is parsed into a real AST via [Markdig](https://github.com/xoofx/markdi
 - 🕵️ **Drift detection** — flags translated files whose source has changed since they were last translated.
 - 🚫 **`.doc-ignore`** — exclude files like `CHANGELOG.md` or `DRAFT_*.md` from the pipeline entirely.
 - 📄 **Frontmatter & admonitions aware** — YAML/TOML frontmatter and Docusaurus/MyST `::: note ... :::` blocks are recognized structurally, not swept into translatable text like an ordinary paragraph.
+- 🔍 **Rich PR summary comment** — a side-by-side original/translated preview per file (collapsible), a count of code blocks/links/glossary terms preserved untouched, and a mention of whoever triggered the run - reviewable without opening a single file.
 
 ## Quick start
 

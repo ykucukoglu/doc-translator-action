@@ -47,8 +47,9 @@ public sealed class MarkdigParserService : IMarkdigParserService
 
         var chunks = new List<TranslationChunk>();
         var reconstructionMap = new Dictionary<string, BlockReconstructionContext>();
+        var codeBlockCount = 0;
 
-        WalkBlocks(document, sourceFilePath, chunks, reconstructionMap);
+        WalkBlocks(document, sourceFilePath, chunks, reconstructionMap, ref codeBlockCount);
 
         return new DocumentTranslationContext
         {
@@ -57,6 +58,7 @@ public sealed class MarkdigParserService : IMarkdigParserService
             Chunks = chunks,
             ReconstructionMap = reconstructionMap,
             FrontmatterRawText = frontmatterRawText,
+            CodeBlockCount = codeBlockCount,
         };
     }
 
@@ -64,7 +66,8 @@ public sealed class MarkdigParserService : IMarkdigParserService
         ContainerBlock container,
         string sourceFilePath,
         List<TranslationChunk> chunks,
-        Dictionary<string, BlockReconstructionContext> reconstructionMap)
+        Dictionary<string, BlockReconstructionContext> reconstructionMap,
+        ref int codeBlockCount)
     {
         foreach (var block in container)
         {
@@ -74,6 +77,9 @@ public sealed class MarkdigParserService : IMarkdigParserService
                 // YamlFrontMatterBlock, if present, was already removed from the tree entirely -
                 // see ParseAndExtractChunks - so it's never seen here.)
                 case CodeBlock:
+                    codeBlockCount++;
+                    break;
+
                 case HtmlBlock:
                 case ThematicBreakBlock:
                     break;
@@ -98,7 +104,7 @@ public sealed class MarkdigParserService : IMarkdigParserService
                 case ContainerBlock nestedContainer:
                     // Document, QuoteBlock, ListBlock, ListItemBlock, Table, TableRow, TableCell -
                     // no chunk of their own, recurse into children.
-                    WalkBlocks(nestedContainer, sourceFilePath, chunks, reconstructionMap);
+                    WalkBlocks(nestedContainer, sourceFilePath, chunks, reconstructionMap, ref codeBlockCount);
                     break;
 
                 default:

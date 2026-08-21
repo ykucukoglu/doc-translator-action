@@ -20,6 +20,12 @@ public sealed class PrSummaryBuilder : IPrSummaryBuilder
         var sb = new StringBuilder();
         sb.AppendLine("## doc-translator-action summary").AppendLine();
 
+        var actor = Environment.GetEnvironmentVariable("GITHUB_ACTOR");
+        if (!string.IsNullOrWhiteSpace(actor))
+        {
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Thanks @{actor} - here's what changed.").AppendLine();
+        }
+
         if (summary.Languages.Count > 0)
         {
             sb.AppendLine("| Language | Chunks translated | From cache |");
@@ -32,13 +38,77 @@ public sealed class PrSummaryBuilder : IPrSummaryBuilder
             sb.AppendLine();
         }
 
+        AppendPreservedSection(sb, summary);
         AppendListSection(sb, "Stale translations detected", summary.DriftWarnings);
         AppendListSection(sb, "Glossary warnings", summary.GlossaryWarnings);
         AppendListSection(sb, "Self-healed (marker repaired after retry)", summary.SelfHealedChunks);
         AppendListSection(sb, "Left untranslated (markers kept dropping after repair attempts)", summary.UnrecoverableChunks);
         AppendListSection(sb, "Skipped (unexpected reconstruction failure)", summary.Errors);
+        AppendPreviews(sb, summary.Previews);
 
         return sb.ToString();
+    }
+
+    /// <summary>Reports what was structurally protected this run - the positive counterpart to the warning sections below, so a reviewer sees confirmation, not just problems.</summary>
+    private static void AppendPreservedSection(StringBuilder sb, TranslationRunSummary summary)
+    {
+        var parts = new List<string>();
+        if (summary.PreservedCodeBlocks > 0)
+        {
+            parts.Add($"{summary.PreservedCodeBlocks} code block{(summary.PreservedCodeBlocks == 1 ? "" : "s")}");
+        }
+
+        if (summary.PreservedInlineCode > 0)
+        {
+            parts.Add($"{summary.PreservedInlineCode} inline code span{(summary.PreservedInlineCode == 1 ? "" : "s")}");
+        }
+
+        if (summary.PreservedLinks > 0)
+        {
+            parts.Add($"{summary.PreservedLinks} link{(summary.PreservedLinks == 1 ? "" : "s")}");
+        }
+
+        if (summary.PreservedGlossaryTerms.Count > 0)
+        {
+            parts.Add($"{summary.PreservedGlossaryTerms.Count} glossary term{(summary.PreservedGlossaryTerms.Count == 1 ? "" : "s")} ({string.Join(", ", summary.PreservedGlossaryTerms.OrderBy(t => t, StringComparer.OrdinalIgnoreCase))})");
+        }
+
+        if (parts.Count == 0)
+        {
+            return;
+        }
+
+        sb.Append("**Preserved untouched:** ").Append(string.Join(", ", parts)).AppendLine(".").AppendLine();
+    }
+
+    private static void AppendPreviews(StringBuilder sb, List<TranslationPreview> previews)
+    {
+        if (previews.Count == 0)
+        {
+            return;
+        }
+
+        sb.AppendLine("### Preview").AppendLine();
+        foreach (var preview in previews)
+        {
+            sb.Append("<details>\n<summary>").Append(preview.FilePath).Append(" &rarr; ").Append(preview.TargetLanguage).AppendLine("</summary>").AppendLine();
+            sb.AppendLine("| Original | Translated |");
+            sb.AppendLine("| --- | --- |");
+            foreach (var (original, translated) in preview.Paragraphs)
+            {
+                sb.Append("| ").Append(TableCell(original)).Append(" | ").Append(TableCell(translated)).AppendLine(" |");
+            }
+
+            sb.AppendLine().AppendLine("</details>").AppendLine();
+        }
+    }
+
+    /// <summary>Markdown table cells can't contain a raw pipe or a literal newline - both would break the row.</summary>
+    private static string TableCell(string text)
+    {
+        const int maxLength = 200;
+        var oneLine = text.Replace("\r\n", " ").Replace('\n', ' ').Replace("|", "\\|").Trim();
+        return oneLine.Length > maxLength ? string.Concat(oneLine.AsSpan(0, maxLength), "…") : oneLine;
     }
 
     private static void AppendListSection(StringBuilder sb, string title, List<string> items)

@@ -27,6 +27,26 @@ public sealed class TranslationRunSummary
 
     /// <summary>Chunks that kept dropping required markers even after repair attempts (or had none available) and were left in the source language rather than corrupting the document.</summary>
     public List<string> UnrecoverableChunks { get; } = [];
+
+    /// <summary>
+    /// A handful of original/translated paragraph pairs per file/language, so a reviewer can sanity-check
+    /// translation quality directly from the PR without opening every changed file.
+    /// </summary>
+    public List<TranslationPreview> Previews { get; } = [];
+
+    /// <summary>Fenced/indented code blocks skipped entirely at the block level, summed across every file processed this run.</summary>
+    public int PreservedCodeBlocks { get; set; }
+
+    /// <summary>Inline code spans preserved as atomic placeholders, summed across every processed chunk.</summary>
+    public int PreservedInlineCode { get; set; }
+
+    /// <summary>Autolinks and markdown links preserved (URL untouched), summed across every processed chunk.</summary>
+    public int PreservedLinks { get; set; }
+
+    /// <summary><c>dont_translate</c> glossary terms confirmed present, verbatim, in at least one translation this run.</summary>
+    public HashSet<string> PreservedGlossaryTerms { get; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed record LanguageSummary(string TargetLanguage, int ChunksTranslated, int ChunksFromCache);
+
+public sealed record TranslationPreview(string FilePath, string TargetLanguage, IReadOnlyList<(string Original, string Translated)> Paragraphs);

@@ -249,6 +249,39 @@ public sealed class TranslationOrchestratorTests : IDisposable
         gitHubService.LastRequest!.BaseBranch.Should().Be("main");
     }
 
+    [Fact]
+    public async Task RunAsync_PrModeWithGlossaryAndCode_SummaryCommentReportsPreservedContentAndPreview()
+    {
+        File.WriteAllText(Path.Combine(_repoRoot, ".doc-terms.json"), """{"dont_translate": ["GitHub"]}""");
+        WriteAndCommit("docs/guide.md", "# Hello\n\nSome text.\n", "base");
+        WriteAndCommit(
+            "docs/guide.md",
+            "# Getting Started\n\nClone the GitHub repository and run `npm install` first.\n\n```bash\necho hello\n```\n",
+            "revise");
+
+        var orchestrator = BuildOrchestrator(out _, out var gitHubService);
+        var options = BuildOptions(targetLanguages: ["tr"], dryRun: false, baseBranch: null);
+
+        var previousRepository = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY");
+        Environment.SetEnvironmentVariable("GITHUB_REPOSITORY", "test-owner/test-repo");
+        try
+        {
+            await orchestrator.RunAsync(options, CancellationToken.None);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GITHUB_REPOSITORY", previousRepository);
+        }
+
+        var comment = gitHubService.LastRequest!.SummaryComment;
+        comment.Should().Contain("GitHub");
+        comment.Should().Contain("code block");
+        comment.Should().Contain("inline code span");
+        comment.Should().Contain("<details>");
+        comment.Should().Contain("docs/guide.md");
+        comment.Should().Contain("Getting Started");
+    }
+
     private void WriteAndCommit(string relativePath, string content, string message)
     {
         var fullPath = Path.Combine(_repoRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));

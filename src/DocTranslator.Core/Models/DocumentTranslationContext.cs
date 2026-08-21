@@ -28,4 +28,7 @@ public sealed class DocumentTranslationContext
     /// has no frontmatter.
     /// </summary>
     public string? FrontmatterRawText { get; init; }
+
+    /// <summary>Count of fenced/indented code blocks skipped entirely at the block level (never chunked, never sent to the LLM) - reported in the PR summary alongside inline code/link/glossary preservation counts.</summary>
+    public int CodeBlockCount { get; init; }
 }

@@ -13,6 +13,7 @@ using DocTranslator.LLM;
 using DocTranslator.LLM.Batching;
 using DocTranslator.LLM.Providers;
 using Microsoft.Extensions.FileSystemGlobbing;
+using System.Text.RegularExpressions;
 
 namespace DocTranslator.Cli.Orchestration;
 
@@ -37,6 +38,9 @@ public sealed class TranslationOrchestrator(
     IJobSummaryWriter jobSummaryWriter,
     IGitHubActionsLog log)
 {
+    private const int MaxPreviewParagraphsPerFile = 3;
+    private const int MaxPreviewEntries = 5;
+
     public async Task<int> RunAsync(ActionOptions options, CancellationToken cancellationToken)
     {
         var glossary = glossaryService.Load(Path.Combine(options.RepositoryPath, options.GlossaryPath));
@@ -129,6 +133,16 @@ public sealed class TranslationOrchestrator(
             var sourceTextByChunkId = context.Chunks.ToDictionary(c => c.ChunkId, c => c.SourceText);
             var provenance = new TranslationProvenance(driftDetector.HashFile(absoluteSourcePath), changedFile.Path, string.Empty, DateTimeOffset.UtcNow);
 
+            // Counted once per file, not per target language - these placeholders are the same
+            // regardless of which language this file is translated into, so counting them again
+            // for every language would inflate the "N preserved" figure by a factor of language count.
+            summary.PreservedCodeBlocks += context.CodeBlockCount;
+            foreach (var chunk in context.Chunks)
+            {
+                summary.PreservedInlineCode += CountOccurrences(chunk.SourceText, "⟦CODE");
+                summary.PreservedLinks += CountOccurrences(chunk.SourceText, "⟦AUTOLINK") + CountOccurrences(chunk.SourceText, "<link");
+            }
+
             foreach (var targetLanguage in languagesForFile)
             {
                 var (translatedChunks, fromCache) = await TranslateWithCacheAsync(
@@ -136,11 +150,29 @@ public sealed class TranslationOrchestrator(
 
                 foreach (var translated in translatedChunks)
                 {
-                    var warnings = glossaryService.Validate(sourceTextByChunkId[translated.ChunkId], translated.TranslatedText, glossary, targetLanguage);
+                    var sourceText = sourceTextByChunkId[translated.ChunkId];
+                    var warnings = glossaryService.Validate(sourceText, translated.TranslatedText, glossary, targetLanguage);
                     foreach (var warning in warnings)
                     {
                         summary.GlossaryWarnings.Add($"{changedFile.Path} [{targetLanguage}]: {warning}");
                         log.LogWarning($"[{targetLanguage}] {warning}", changedFile.Path);
+                    }
+
+                    summary.PreservedGlossaryTerms.UnionWith(glossaryService.FindPreservedTerms(sourceText, translated.TranslatedText, glossary));
+                }
+
+                if (summary.Previews.Count < MaxPreviewEntries)
+                {
+                    var paragraphs = context.Chunks
+                        .Take(MaxPreviewParagraphsPerFile)
+                        .Select(c => translatedChunks.FirstOrDefault(t => t.ChunkId == c.ChunkId))
+                        .Where(t => t is not null)
+                        .Select(t => (Original: CleanForPreview(sourceTextByChunkId[t!.ChunkId]), Translated: CleanForPreview(t!.TranslatedText)))
+                        .ToList();
+
+                    if (paragraphs.Count > 0)
+                    {
+                        summary.Previews.Add(new TranslationPreview(changedFile.Path, targetLanguage, paragraphs));
                     }
                 }
 
@@ -356,6 +388,27 @@ public sealed class TranslationOrchestrator(
 
     /// <summary>Every generated file carries this header (see <see cref="TranslationProvenance.ToHeaderComment"/>, and <see cref="IDriftDetector.TryParseHeader"/> for where it's expected relative to a leading frontmatter block) - a reliable, output-path-template-agnostic "we wrote this" signal, used everywhere this orchestrator needs to tell a real source apart from its own prior output.</summary>
     private bool IsGeneratedOutput(string text) => driftDetector.TryParseHeader(text) is not null;
+
+    private static int CountOccurrences(string text, string marker)
+    {
+        var count = 0;
+        for (var index = text.IndexOf(marker, StringComparison.Ordinal); index >= 0; index = text.IndexOf(marker, index + marker.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Cosmetic cleanup for the PR summary's side-by-side preview, not structural parsing: paired
+    /// tags (&lt;em0&gt;, &lt;link1&gt;, ...) are stripped down to their inner text, and atomic
+    /// placeholders (code spans, autolinks, raw HTML, line breaks - whose real content isn't
+    /// available here) are shown as a plain ellipsis, so a reviewer sees readable prose instead of
+    /// this codebase's internal marker syntax.
+    /// </summary>
+    private static string CleanForPreview(string encodedText) =>
+        Regex.Replace(Regex.Replace(encodedText, @"</?(?:em|strong|link)\d+>", string.Empty), @"⟦[A-Z]+\d+⟧", "…").Trim();
 
     /// <summary>
     /// Scans every source file matching the glob (not just this run's changed files) and flags

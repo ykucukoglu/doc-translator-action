@@ -19,6 +19,14 @@ public interface IGlossaryService
     /// terms like "API" don't false-positive inside longer words like "CAPITAL".
     /// </summary>
     IReadOnlyList<string> Validate(string sourceText, string translatedText, GlossaryContext glossary, string targetLanguage);
+
+    /// <summary>
+    /// Which <c>dont_translate</c> terms appear in <paramref name="sourceText"/> and were confirmed
+    /// still present, verbatim, in <paramref name="translatedText"/> - the positive counterpart to
+    /// <see cref="Validate"/>'s failure warnings, used to report what was actually protected (e.g.
+    /// in the PR summary), not just what went wrong.
+    /// </summary>
+    IReadOnlyCollection<string> FindPreservedTerms(string sourceText, string translatedText, GlossaryContext glossary);
 }
 
 public sealed class GlossaryService : IGlossaryService
@@ -110,6 +118,15 @@ public sealed class GlossaryService : IGlossaryService
         }
 
         return warnings;
+    }
+
+    public IReadOnlyCollection<string> FindPreservedTerms(string sourceText, string translatedText, GlossaryContext glossary)
+    {
+        var comparison = glossary.CaseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase;
+
+        return glossary.DontTranslate
+            .Where(term => ContainsWholeWord(sourceText, term, comparison) && ContainsWholeWord(translatedText, term, comparison))
+            .ToList();
     }
 
     private static bool ContainsWholeWord(string text, string term, RegexOptions comparisonOptions)
