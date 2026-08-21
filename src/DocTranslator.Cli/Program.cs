@@ -141,12 +141,29 @@ static async Task<int> RunAsync(ActionOptionsCliOverrides cliOverrides, Cancella
     }
     catch (Exception ex)
     {
-        Console.Error.WriteLine($"doc-translator-action failed: {ex.Message}");
+        Console.Error.WriteLine(Redact($"doc-translator-action failed: {ex.Message}", options));
         if (options.Verbose)
         {
-            Console.Error.WriteLine(ex);
+            // ex.ToString() walks the full InnerException chain, including messages that
+            // originate from vendor SDKs we don't control - redact known secret values before
+            // printing rather than trusting every current and future SDK never to echo one back
+            // (e.g. in a request-URI or header dump inside an HTTP-layer exception).
+            Console.Error.WriteLine(Redact(ex.ToString(), options));
         }
 
         return 1;
     }
+}
+
+static string Redact(string text, ActionOptions options)
+{
+    foreach (var secret in new[] { options.GitHubToken, options.GeminiApiKey, options.OpenAiApiKey, options.AnthropicApiKey, options.AzureOpenAiApiKey })
+    {
+        if (!string.IsNullOrEmpty(secret))
+        {
+            text = text.Replace(secret, "***", StringComparison.Ordinal);
+        }
+    }
+
+    return text;
 }

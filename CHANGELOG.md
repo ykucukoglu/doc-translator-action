@@ -50,6 +50,10 @@ Everything below is pending the first tagged release (`v1.0.0`).
 
 ### Security
 
+- The top-level error handler now redacts every configured API key/token from both the always-printed failure message and the `--verbose`/`INPUT_VERBOSE` full-exception dump, before either reaches stderr. No leak was found in any of the four provider SDKs' own exception messages, but this closes the gap deterministically (a literal substring replace against the known secret values) instead of relying on every current and future SDK version never echoing one back.
+
+### Security
+
 - `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), completing GitHub's recommended community-health-file checklist alongside the existing `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, and issue/PR templates.
 - All third-party actions used in this repo's own workflows (`actions/checkout`, `actions/setup-dotnet`, `actions/cache`, `github/codeql-action/*`) are now pinned to a full commit SHA instead of a mutable version tag - a tag can be silently repointed (by a compromised maintainer account or a force-pushed release, both of which have happened to widely-used actions), a SHA cannot. Dependabot still proposes updates via the trailing `# vN` comment.
 
