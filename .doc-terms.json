@@ -6,5 +6,6 @@
     "de": { "repository": "Repository", "pull request": "Pull Request" },
     "fr": { "repository": "dépôt", "pull request": "requête de tirage" },
     "tr": { "repository": "depo", "pull request": "değişiklik isteği" }
-  }
+  },
+  "style_guide": "Use a neutral, professional tone. Write instructions directly to the reader."
 }

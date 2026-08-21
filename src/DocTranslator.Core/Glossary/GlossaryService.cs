@@ -9,7 +9,7 @@ public interface IGlossaryService
     /// <summary>Loads and parses a <c>.doc-terms.json</c> file. Returns <see cref="GlossaryContext.Empty"/> if the file doesn't exist.</summary>
     GlossaryContext Load(string glossaryPath);
 
-    /// <summary>Builds the glossary instruction block embedded in the LLM prompt for a given target language.</summary>
+    /// <summary>Builds the style guide and glossary instruction block embedded in the LLM prompt for a given target language.</summary>
     string BuildPromptHint(GlossaryContext glossary, string targetLanguage);
 
     /// <summary>
@@ -41,17 +41,24 @@ public sealed class GlossaryService : IGlossaryService
         return new GlossaryContext(
             DontTranslate: new HashSet<string>(file.DontTranslate, file.CaseSensitive ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase),
             CustomMappings: customMappings,
-            CaseSensitive: file.CaseSensitive);
+            CaseSensitive: file.CaseSensitive,
+            StyleGuide: string.IsNullOrWhiteSpace(file.StyleGuide) ? null : file.StyleGuide.Trim());
     }
 
     public string BuildPromptHint(GlossaryContext glossary, string targetLanguage)
     {
-        if (glossary.DontTranslate.Count == 0 && glossary.MappingsFor(targetLanguage).Count == 0)
+        var hasStyleGuide = !string.IsNullOrEmpty(glossary.StyleGuide);
+        if (!hasStyleGuide && glossary.DontTranslate.Count == 0 && glossary.MappingsFor(targetLanguage).Count == 0)
         {
             return string.Empty;
         }
 
         var sb = new StringBuilder();
+
+        if (hasStyleGuide)
+        {
+            sb.Append("Follow this style guide: ").Append(glossary.StyleGuide).Append(' ');
+        }
 
         if (glossary.DontTranslate.Count > 0)
         {

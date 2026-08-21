@@ -11,7 +11,7 @@ Everything below is pending the first tagged release (`v1.0.0`).
 - AST-based Markdown translation pipeline (Markdig parse → chunk extraction → LLM translate → self-healing reconstruction), preserving code fences, inline code, raw HTML, and link/image URLs byte-for-byte.
 - Multi-provider LLM support (Gemini, OpenAI, Claude) behind a single `Microsoft.Extensions.AI` `IChatClient` abstraction, plus a `fake` provider for local/CI smoke testing with no API key.
 - Content-hash translation cache, keyed per source file/language/chunk - immune to line-number drift from unrelated edits.
-- Glossary support (`.doc-terms.json`): `dont_translate` terms and per-language `custom_mappings`, validated post-translation with word-boundary matching (word-start-only for `custom_mappings`, to tolerate agglutinative-language suffixes).
+- Glossary support (`.doc-terms.json`): `dont_translate` terms, per-language `custom_mappings`, and an optional `style_guide` tone instruction, validated post-translation with word-boundary matching (word-start-only for `custom_mappings`, to tolerate agglutinative-language suffixes).
 - `.doc-ignore` file exclusion (`.gitignore`-style globs).
 - Drift detection: translated files carry a provenance header (source hash + timestamp); a later run flags translations that have gone stale, and the same header prevents a file this action generated from ever being picked up as new source on a later run.
 - Self-healing reconstruction: a translation that drops a required placeholder/tag marker is retried with a repair prompt (up to 2 attempts) before falling back to leaving that one paragraph untranslated.
@@ -21,6 +21,7 @@ Everything below is pending the first tagged release (`v1.0.0`).
 - `config-path` optional JSON config file for repo-wide defaults, with explicit inputs always taking priority.
 - `backfill-missing-translations` input: translates any source file/language pair with no output yet regardless of this run's diff, for a first install against pre-existing docs or after adding a new target language.
 - `DocTranslator.Cli.Tests`: end-to-end orchestrator tests against a real throwaway git repo, with only the LLM call and the GitHub PR API faked.
+- `DocTranslator.GitHub.Tests`: diff analyzer and git-write mechanics tests against real throwaway repos.
 
 ### Fixed
 

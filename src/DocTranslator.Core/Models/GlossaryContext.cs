@@ -7,10 +7,12 @@ namespace DocTranslator.Core.Models;
 /// <param name="DontTranslate">Terms that must appear verbatim, untranslated, in every target language.</param>
 /// <param name="CustomMappings">Per-target-language source-term -&gt; required-rendering overrides.</param>
 /// <param name="CaseSensitive">Whether glossary term matching is case-sensitive.</param>
+/// <param name="StyleGuide">Free-form tone/voice instruction sent to the LLM alongside the glossary terms, e.g. "formal, no contractions".</param>
 public sealed record GlossaryContext(
     IReadOnlySet<string> DontTranslate,
     IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> CustomMappings,
-    bool CaseSensitive)
+    bool CaseSensitive,
+    string? StyleGuide = null)
 {
     public static GlossaryContext Empty { get; } = new(
         DontTranslate: new HashSet<string>(),

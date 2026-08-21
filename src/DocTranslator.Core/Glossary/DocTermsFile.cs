@@ -16,6 +16,9 @@ internal sealed class DocTermsFile
 
     [JsonPropertyName("custom_mappings")]
     public Dictionary<string, Dictionary<string, string>> CustomMappings { get; set; } = [];
+
+    [JsonPropertyName("style_guide")]
+    public string? StyleGuide { get; set; }
 }
 
 [JsonSerializable(typeof(DocTermsFile))]

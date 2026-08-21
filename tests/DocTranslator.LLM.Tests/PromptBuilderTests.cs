@@ -57,6 +57,20 @@ public class PromptBuilderTests
     }
 
     [Fact]
+    public void Build_WithStyleGuide_IncludesItInSystemMessage()
+    {
+        var glossary = new GlossaryContext(
+            new HashSet<string>(),
+            new Dictionary<string, IReadOnlyDictionary<string, string>>(),
+            CaseSensitive: false,
+            StyleGuide: "Use a formal tone.");
+
+        var messages = _sut.Build([Chunk("c1", "hello")], "de", glossary);
+
+        messages[0].Text.Should().Contain("Use a formal tone.");
+    }
+
+    [Fact]
     public void Build_TargetLanguageCode_AppearsInSystemMessage()
     {
         var messages = _sut.Build([Chunk("c1", "hello")], "fr", GlossaryContext.Empty);

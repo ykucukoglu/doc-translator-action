@@ -53,6 +53,30 @@ public class GlossaryServiceTests
     }
 
     [Fact]
+    public void BuildPromptHint_StyleGuideOnly_IsIncludedEvenWithNoGlossaryTerms()
+    {
+        var glossary = new GlossaryContext(
+            new HashSet<string>(),
+            new Dictionary<string, IReadOnlyDictionary<string, string>>(),
+            CaseSensitive: false,
+            StyleGuide: "Use a formal tone.");
+
+        var hint = _sut.BuildPromptHint(glossary, "de");
+
+        hint.Should().Contain("Use a formal tone.");
+    }
+
+    [Fact]
+    public void Load_SampleFileWithStyleGuide_ParsesIt()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample-doc-terms.json");
+
+        var context = _sut.Load(path);
+
+        context.StyleGuide.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
     public void Validate_TermSurvivesAsWholeWord_NoWarning()
     {
         var glossary = new GlossaryContext(new HashSet<string> { "API" }, new Dictionary<string, IReadOnlyDictionary<string, string>>(), CaseSensitive: false);

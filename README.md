@@ -159,7 +159,7 @@ Running `DocTranslator.Cli` directly (outside the Action) reads plain, unprefixe
 
 ## Glossary
 
-`.doc-terms.json` at the repo root controls which terms are never translated (`dont_translate`) and per-language required renderings (`custom_mappings`). See the sample file in this repo.
+`.doc-terms.json` at the repo root controls which terms are never translated (`dont_translate`), per-language required renderings (`custom_mappings`), and an optional overall tone (`style_guide`, a free-form instruction like `"Use a formal tone, no contractions."` sent to the LLM alongside the glossary terms). See the sample file in this repo.
 
 ## Solution layout
 
