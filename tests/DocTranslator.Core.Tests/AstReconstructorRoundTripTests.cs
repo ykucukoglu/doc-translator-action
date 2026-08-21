@@ -265,6 +265,34 @@ public class AstReconstructorRoundTripTests
     }
 
     [Fact]
+    public async Task Reconstruct_FrontmatterFields_WhenEnabled_TranslatesOnlyAllowlistedValues()
+    {
+        var markdown = "---\ntitle: \"Installation Guide\"\nsidebar_position: 1\nslug: \"/docs/install\"\n---\n\n# Body\n";
+        var context = _parser.ParseAndExtractChunks("guide.md", markdown, translateFrontmatterFields: true);
+        var translated = FakeTranslate(context.Chunks);
+
+        var outcome = await ReconstructAsync(context, translated);
+        var normalized = outcome.Markdown.Replace("\r\n", "\n");
+
+        normalized.Should().Contain("title: \"⟪Installation Guide⟫\"");
+        normalized.Should().Contain("sidebar_position: 1"); // untouched: not on the allowlist
+        normalized.Should().Contain("slug: \"/docs/install\""); // untouched: not on the allowlist
+    }
+
+    [Fact]
+    public async Task Reconstruct_FrontmatterFields_OffByDefault_LeavesFrontmatterCompletelyUntouched()
+    {
+        var markdown = "---\ntitle: \"Installation Guide\"\n---\n\n# Body\n";
+        var context = _parser.ParseAndExtractChunks("guide.md", markdown);
+        var translated = FakeTranslate(context.Chunks);
+
+        var outcome = await ReconstructAsync(context, translated);
+
+        outcome.Markdown.Should().Contain("title: \"Installation Guide\"");
+        outcome.Markdown.Should().NotContain("⟪Installation Guide⟫");
+    }
+
+    [Fact]
     public async Task Reconstruct_MermaidDiagram_OffByDefault_LeavesDiagramCompletelyUntouched()
     {
         var markdown = Fixtures.Load("mermaid-diagram.md");

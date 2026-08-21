@@ -13,4 +13,7 @@ public enum BlockKind
 
     /// <summary>A single node/edge/subgraph label extracted from a ```mermaid fenced code block - see <c>MermaidLabelExtractor</c>.</summary>
     MermaidLabel,
+
+    /// <summary>A single allowlisted field's value (e.g. <c>title</c>) extracted from the document's frontmatter - see <c>FrontmatterFieldExtractor</c>.</summary>
+    FrontmatterField,
 }

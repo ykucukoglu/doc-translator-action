@@ -51,6 +51,9 @@ public sealed class ConfigFile
     [JsonPropertyName("translateMermaidDiagrams")]
     public bool? TranslateMermaidDiagrams { get; set; }
 
+    [JsonPropertyName("translateFrontmatterFields")]
+    public bool? TranslateFrontmatterFields { get; set; }
+
     [JsonPropertyName("pushToCurrentBranch")]
     public bool? PushToCurrentBranch { get; set; }
 

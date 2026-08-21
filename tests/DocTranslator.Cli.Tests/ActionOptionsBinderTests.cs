@@ -182,6 +182,29 @@ public sealed class ActionOptionsBinderTests : IDisposable
     }
 
     [Fact]
+    public void Bind_TranslateFrontmatterFields_DefaultsToFalse()
+    {
+        Set("INPUT_PR-MODE", "false");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.TranslateFrontmatterFields.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Bind_TranslateFrontmatterFieldsTrue_IsRespected()
+    {
+        Set("INPUT_PR-MODE", "false");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+        Set("INPUT_TRANSLATE-FRONTMATTER-FIELDS", "true");
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.TranslateFrontmatterFields.Should().BeTrue();
+    }
+
+    [Fact]
     public void Bind_SourceLanguageAndMaxBatchTokens_DefaultToAutoAnd4000()
     {
         Set("INPUT_PR-MODE", "false");

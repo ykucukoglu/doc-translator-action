@@ -89,6 +89,15 @@ public sealed class ActionOptions
     public bool TranslateMermaidDiagrams { get; init; }
 
     /// <summary>
+    /// When true, translates the value of a fixed, safe allowlist of frontmatter fields (<c>title</c>,
+    /// <c>description</c>, <c>sidebar_label</c>, <c>label</c>) - every other field (<c>slug</c>,
+    /// <c>sidebar_position</c>, <c>tags</c>, dates, booleans, numbers, ...) stays exactly as written.
+    /// Off by default, same reasoning as <see cref="TranslateMermaidDiagrams"/>: this is the only
+    /// other feature that modifies content inside what would otherwise be an untouched block.
+    /// </summary>
+    public bool TranslateFrontmatterFields { get; init; }
+
+    /// <summary>
     /// When true, commits and pushes translated files directly onto whatever branch is already
     /// checked out - no new branch, no pull request. Meant for a workflow with its own reason to
     /// already be on a specific branch (e.g. a PR-comment-triggered run pushing back onto that

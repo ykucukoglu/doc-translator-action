@@ -70,14 +70,14 @@ public static class MermaidLabelExtractor
     }
 
     /// <summary>Every label span found, in source order. Offsets are into <paramref name="rawText"/> exactly as given (no normalization).</summary>
-    public static IReadOnlyList<MermaidLabelSpan> ExtractLabels(string rawText)
+    public static IReadOnlyList<ExtractedTextSpan> ExtractLabels(string rawText)
     {
         if (!IsSupportedDiagram(rawText))
         {
             return [];
         }
 
-        var spans = new List<MermaidLabelSpan>();
+        var spans = new List<ExtractedTextSpan>();
         var lineStart = 0;
 
         foreach (var line in rawText.Split('\n'))
@@ -93,7 +93,7 @@ public static class MermaidLabelExtractor
         return spans;
     }
 
-    private static void ExtractFromLine(string line, int lineStart, List<MermaidLabelSpan> spans)
+    private static void ExtractFromLine(string line, int lineStart, List<ExtractedTextSpan> spans)
     {
         if (line.TrimStart().StartsWith("subgraph", StringComparison.OrdinalIgnoreCase))
         {
@@ -131,7 +131,7 @@ public static class MermaidLabelExtractor
         throw new InvalidOperationException("NodeLabelPattern matched but no named alternative captured - regex/group name mismatch.");
     }
 
-    private static void AddSpan(List<MermaidLabelSpan> spans, int lineStart, Group group)
+    private static void AddSpan(List<ExtractedTextSpan> spans, int lineStart, Group group)
     {
         var raw = group.Value;
         var start = lineStart + group.Index;
@@ -154,6 +154,6 @@ public static class MermaidLabelExtractor
             return; // nothing translatable here (e.g. an empty "" label) - leave it alone
         }
 
-        spans.Add(new MermaidLabelSpan(start, length, text));
+        spans.Add(new ExtractedTextSpan(start, length, text));
     }
 }

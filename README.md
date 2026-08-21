@@ -20,7 +20,7 @@ Markdown is parsed into a real AST via [Markdig](https://github.com/xoofx/markdi
 - 🔁 **Resilient & concurrent** — Polly v8 exponential backoff on transient HTTP failures; batch requests run concurrently, bounded by `max-parallel-requests`.
 - 🕵️ **Drift detection** — flags translated files whose source has changed since they were last translated.
 - 🚫 **`.doc-ignore`** — exclude files like `CHANGELOG.md` or `DRAFT_*.md` from the pipeline entirely.
-- 📄 **Frontmatter & admonitions aware** — YAML/TOML frontmatter and Docusaurus/MyST `::: note ... :::` blocks are recognized structurally, not swept into translatable text like an ordinary paragraph.
+- 📄 **Frontmatter & admonitions aware** — YAML/TOML frontmatter and Docusaurus/MyST `::: note ... :::` blocks are recognized structurally, not swept into translatable text like an ordinary paragraph. `translate-frontmatter-fields: true` (opt-in) additionally translates the `title`/`description`/`sidebar_label`/`label` values, leaving `slug`, dates, numbers, booleans, and arrays untouched.
 - 🗺️ **Mermaid diagram labels** (opt-in) — `translate-mermaid-diagrams: true` translates node/edge/subgraph text inside flowchart/graph diagrams; arrows, node ids, and syntax are never touched. Image alt text (`![alt](url)`) is translated by default already, since it's just inline Markdown content.
 - 💬 **ChatOps-friendly** — `push-to-current-branch: true` commits straight onto whatever branch is checked out instead of opening a new PR, so a `/translate` PR comment can push the result back onto that same PR. See [Comment-triggered (ChatOps)](#comment-triggered-chatops).
 - 🔍 **Rich PR summary comment** — a side-by-side original/translated preview per file (collapsible), a count of code blocks/links/glossary terms preserved untouched, and a mention of whoever triggered the run - reviewable without opening a single file.
@@ -218,6 +218,7 @@ All inputs are optional except `github-token` (required unless `pr-mode`/`dry-ru
 | `verbose` | `false` | Prints the full exception (not just its message) to stderr on failure. |
 | `translate-mermaid-diagrams` | `false` | Translates node/edge/subgraph text labels inside ` ```mermaid ` flowchart/graph diagrams, leaving arrows, node ids, and the diagram syntax itself untouched. Only flowchart/graph diagrams are supported - other mermaid diagram types and PlantUML are left as-is. |
 | `push-to-current-branch` | `false` | Commits and pushes directly onto whatever branch is already checked out - no new branch, no pull request. See [Comment-triggered (ChatOps)](#comment-triggered-chatops). Requires a real branch checkout, not a detached HEAD. |
+| `translate-frontmatter-fields` | `false` | Translates the `title`, `description`, `sidebar_label`, and `label` YAML/TOML frontmatter values. Everything else in frontmatter (`slug`, `sidebar_position`, `tags`, dates, booleans, numbers, nested mappings) is left byte-identical. |
 
 **Outputs:** `pr-url`, `pr-was-created`, `translated-files-count`, `stale-translations-count`.
 
@@ -253,6 +254,7 @@ Running `DocTranslator.Cli` directly (outside the Action) reads plain, unprefixe
 - **Branches requiring signed commits aren't supported.** Commits are made via LibGit2Sharp with a plain author signature, not GPG/SSH-signed. If the target branch's protection rules require signed commits, the push will be rejected.
 - **JSX/MDX component text with no blank line before it is skipped, not corrupted.** Markdig parses a raw HTML/JSX-style block (`<Component>...</Component>`) with no blank line separating the tag from its inner text as one opaque block, so text written that tightly never reaches translation at all. Separating a component's content from its tags with a blank line (the common MDX convention, and what Docusaurus's own scaffolding generates) avoids this entirely - `::: note ... :::` admonitions aren't affected either way.
 - **`translate-mermaid-diagrams` only supports `flowchart`/`graph` diagrams**, and only their node/edge/subgraph text labels - `sequenceDiagram`, `classDiagram`, `erDiagram`, `gantt`, `pie`, `gitGraph`, `mindmap`, and other mermaid diagram types are left completely untouched (as if the option were off), as is PlantUML. A line whose label doesn't cleanly match one of the supported shapes is also left untouched rather than guessed at.
+- **`translate-frontmatter-fields` only covers a fixed key allowlist** (`title`, `description`, `sidebar_label`, `label`) and only single-line plain/quoted scalar values - block scalars (`|`, `>`), arrays, nested mappings, and any other key are left untouched rather than guessed at. This is deliberately narrow: it's the set of fields that show up in page navigation/browser tabs, not free-form config.
 
 ## Glossary
 

@@ -17,16 +17,20 @@ public interface IMarkdigParserService
     /// per translatable leaf block. Code blocks, fenced code blocks, raw HTML blocks, thematic
     /// breaks, and YAML/TOML frontmatter are skipped entirely and never touched - except a
     /// ```mermaid block's node/edge/subgraph labels when <paramref name="translateMermaidDiagrams"/>
-    /// is on (see <see cref="MermaidLabelExtractor"/>).
+    /// is on (see <see cref="MermaidLabelExtractor"/>), and an allowlisted frontmatter field's value
+    /// (e.g. <c>title</c>) when <paramref name="translateFrontmatterFields"/> is on (see
+    /// <see cref="FrontmatterFieldExtractor"/>).
     /// </summary>
-    DocumentTranslationContext ParseAndExtractChunks(string sourceFilePath, string markdownText, bool translateMermaidDiagrams = false);
+    DocumentTranslationContext ParseAndExtractChunks(
+        string sourceFilePath, string markdownText, bool translateMermaidDiagrams = false, bool translateFrontmatterFields = false);
 }
 
 public sealed class MarkdigParserService : IMarkdigParserService
 {
     private readonly InlineChunkExtractor _extractor = new();
 
-    public DocumentTranslationContext ParseAndExtractChunks(string sourceFilePath, string markdownText, bool translateMermaidDiagrams = false)
+    public DocumentTranslationContext ParseAndExtractChunks(
+        string sourceFilePath, string markdownText, bool translateMermaidDiagrams = false, bool translateFrontmatterFields = false)
     {
         // Markdig's UseYamlFrontMatter() only recognizes `---`-delimited YAML - Hugo's `+++`-delimited
         // TOML frontmatter has no native Markdig support at all, so it's stripped here, before
@@ -55,6 +59,10 @@ public sealed class MarkdigParserService : IMarkdigParserService
 
         WalkBlocks(document, sourceFilePath, chunks, reconstructionMap, mermaidBlocks, translateMermaidDiagrams, ref codeBlockCount);
 
+        var frontmatterFields = translateFrontmatterFields && frontmatterRawText is not null
+            ? ExtractFrontmatterFields(frontmatterRawText, sourceFilePath, chunks)
+            : [];
+
         return new DocumentTranslationContext
         {
             SourceFilePath = sourceFilePath,
@@ -64,7 +72,32 @@ public sealed class MarkdigParserService : IMarkdigParserService
             FrontmatterRawText = frontmatterRawText,
             CodeBlockCount = codeBlockCount,
             MermaidBlocks = mermaidBlocks,
+            FrontmatterFields = frontmatterFields,
         };
+    }
+
+    /// <summary>
+    /// Mirrors <see cref="TryExtractMermaidLabels"/>'s pattern, one level simpler: there's only ever
+    /// one frontmatter block per document, so this returns the chunk id/span pairs directly instead
+    /// of building a whole block-context list.
+    /// </summary>
+    private static List<(string ChunkId, ExtractedTextSpan Span)> ExtractFrontmatterFields(
+        string frontmatterRawText, string sourceFilePath, List<TranslationChunk> chunks)
+    {
+        var fields = new List<(string ChunkId, ExtractedTextSpan Span)>();
+        foreach (var span in FrontmatterFieldExtractor.ExtractTranslatableFields(frontmatterRawText))
+        {
+            var chunkId = Guid.NewGuid().ToString("N");
+            chunks.Add(new TranslationChunk(
+                ChunkId: chunkId,
+                SourceText: span.Text,
+                ContentHash: ComputeHash(span.Text),
+                BlockKind: BlockKind.FrontmatterField,
+                SourceFilePath: sourceFilePath));
+            fields.Add((chunkId, span));
+        }
+
+        return fields;
     }
 
     private void WalkBlocks(
@@ -181,7 +214,7 @@ public sealed class MarkdigParserService : IMarkdigParserService
             return;
         }
 
-        var labels = new List<(string ChunkId, MermaidLabelSpan Span)>(labelSpans.Count);
+        var labels = new List<(string ChunkId, ExtractedTextSpan Span)>(labelSpans.Count);
         foreach (var span in labelSpans)
         {
             var chunkId = Guid.NewGuid().ToString("N");

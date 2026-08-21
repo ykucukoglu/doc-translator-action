@@ -1,7 +1,7 @@
 namespace DocTranslator.Core.Models;
 
-/// <summary>One extracted label's position within a mermaid block's raw text, and the exact source text found there (quotes, if any, stripped).</summary>
-public readonly record struct MermaidLabelSpan(int Start, int Length, string Text);
+/// <summary>One extracted piece of text's position within some larger raw text, and the exact source text found there (quotes, if any, stripped). Shared shape for both <c>MermaidLabelExtractor</c> and <c>FrontmatterFieldExtractor</c>.</summary>
+public readonly record struct ExtractedTextSpan(int Start, int Length, string Text);
 
 /// <summary>
 /// One ```mermaid fenced code block's original raw content plus the labels extracted from it,
@@ -15,5 +15,5 @@ public sealed class MermaidBlockContext
 {
     public required string OriginalRawText { get; init; }
 
-    public required IReadOnlyList<(string ChunkId, MermaidLabelSpan Span)> Labels { get; init; }
+    public required IReadOnlyList<(string ChunkId, ExtractedTextSpan Span)> Labels { get; init; }
 }

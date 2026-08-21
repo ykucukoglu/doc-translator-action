@@ -162,6 +162,29 @@ public class MarkdigParserServiceTests
     }
 
     [Fact]
+    public void ParseAndExtractChunks_FrontmatterFields_OffByDefault_ExtractsNoFields()
+    {
+        var markdown = "---\ntitle: \"Installation Guide\"\nsidebar_position: 1\n---\n\n# Body\n";
+
+        var context = _sut.ParseAndExtractChunks("guide.md", markdown);
+
+        context.FrontmatterFields.Should().BeEmpty();
+        context.Chunks.Should().NotContain(c => c.BlockKind == BlockKind.FrontmatterField);
+    }
+
+    [Fact]
+    public void ParseAndExtractChunks_FrontmatterFields_WhenEnabled_ExtractsAllowlistedFieldsOnly()
+    {
+        var markdown = "---\ntitle: \"Installation Guide\"\nsidebar_position: 1\nslug: \"/docs/install\"\n---\n\n# Body\n";
+
+        var context = _sut.ParseAndExtractChunks("guide.md", markdown, translateFrontmatterFields: true);
+
+        var frontmatterChunks = context.Chunks.Where(c => c.BlockKind == BlockKind.FrontmatterField).ToList();
+        frontmatterChunks.Should().ContainSingle(c => c.SourceText == "Installation Guide");
+        context.FrontmatterFields.Should().HaveCount(1);
+    }
+
+    [Fact]
     public void ParseAndExtractChunks_FencedCodeBlocks_CountsThem()
     {
         var markdown = Fixtures.Load("fenced-code-blocks.md");

@@ -40,6 +40,8 @@ public sealed class AstReconstructor : IAstReconstructor
         var chunksById = context.Chunks.ToDictionary(c => c.ChunkId);
         var mermaidChunkIds = context.MermaidBlocks.SelectMany(b => b.Labels.Select(l => l.ChunkId)).ToHashSet();
         var mermaidTranslations = new Dictionary<string, string>();
+        var frontmatterFieldChunkIds = context.FrontmatterFields.Select(f => f.ChunkId).ToHashSet();
+        var frontmatterFieldTranslations = new Dictionary<string, string>();
         var repairedIds = new List<string>();
         var unrecoverableIds = new List<string>();
 
@@ -53,6 +55,13 @@ public sealed class AstReconstructor : IAstReconstructor
                 // placeholder/tag markers to verify, so no self-healing round-trip needed here.
                 // Spliced into their block's raw text separately, once every chunk is in hand.
                 mermaidTranslations[translated.ChunkId] = translated.TranslatedText;
+                continue;
+            }
+
+            if (frontmatterFieldChunkIds.Contains(translated.ChunkId))
+            {
+                // Same reasoning as mermaid labels: a plain scalar value, no markers to verify.
+                frontmatterFieldTranslations[translated.ChunkId] = translated.TranslatedText;
                 continue;
             }
 
@@ -78,7 +87,7 @@ public sealed class AstReconstructor : IAstReconstructor
         // as it always did.
         foreach (var block in context.MermaidBlocks)
         {
-            var translatedRawText = ApplyMermaidTranslations(block, mermaidTranslations);
+            var translatedRawText = SpliceSpans(block.OriginalRawText, block.Labels, mermaidTranslations);
             if (translatedRawText != block.OriginalRawText)
             {
                 rendered = rendered.Replace(block.OriginalRawText, translatedRawText, StringComparison.Ordinal);
@@ -91,10 +100,15 @@ public sealed class AstReconstructor : IAstReconstructor
 
         // Frontmatter must stay the very first bytes of the file for the target site generator to
         // recognize it as metadata at all - the provenance header (and everything else) goes after
-        // it, never before.
+        // it, never before. Allowlisted field values (title, description, ...) are spliced in here,
+        // same shape as ApplyMermaidTranslations - a field with no translation (option was off, or
+        // this one just didn't come back) keeps its original text.
         if (context.FrontmatterRawText is not null)
         {
-            markdown = context.FrontmatterRawText + Environment.NewLine + Environment.NewLine + markdown;
+            var frontmatterText = context.FrontmatterFields.Count == 0
+                ? context.FrontmatterRawText
+                : SpliceSpans(context.FrontmatterRawText, context.FrontmatterFields, frontmatterFieldTranslations);
+            markdown = frontmatterText + Environment.NewLine + Environment.NewLine + markdown;
         }
 
         return new ReconstructionOutcome(markdown, repairedIds, unrecoverableIds);
@@ -345,19 +359,22 @@ public sealed class AstReconstructor : IAstReconstructor
     }
 
     /// <summary>
-    /// Splices every label this block had a translation for into a copy of its raw text, working
-    /// from the last span to the first so an earlier span's (Start, Length) offsets are never
-    /// invalidated by a replacement made after it. A label with no entry in
-    /// <paramref name="mermaidTranslations"/> (translation failed for just that one chunk) keeps
-    /// its original text rather than leaving a gap.
+    /// Splices every span that has a translation into a copy of <paramref name="originalText"/>,
+    /// working from the last span to the first so an earlier span's (Start, Length) offsets are
+    /// never invalidated by a replacement made after it. A span with no entry in
+    /// <paramref name="translations"/> (translation failed for just that one chunk) keeps its
+    /// original text rather than leaving a gap. Shared by mermaid labels and frontmatter fields -
+    /// both are "translate this one piece of a larger raw text, nothing else" problems with no
+    /// Markdig Inline tree to splice into the normal way.
     /// </summary>
-    private static string ApplyMermaidTranslations(MermaidBlockContext block, Dictionary<string, string> mermaidTranslations)
+    private static string SpliceSpans(
+        string originalText, IReadOnlyList<(string ChunkId, ExtractedTextSpan Span)> spans, Dictionary<string, string> translations)
     {
-        var text = block.OriginalRawText;
+        var text = originalText;
 
-        foreach (var (chunkId, span) in block.Labels.OrderByDescending(l => l.Span.Start))
+        foreach (var (chunkId, span) in spans.OrderByDescending(s => s.Span.Start))
         {
-            if (mermaidTranslations.TryGetValue(chunkId, out var translatedText))
+            if (translations.TryGetValue(chunkId, out var translatedText))
             {
                 text = string.Concat(text.AsSpan(0, span.Start), translatedText, text.AsSpan(span.Start + span.Length));
             }

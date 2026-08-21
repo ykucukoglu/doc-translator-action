@@ -40,4 +40,12 @@ public sealed class DocumentTranslationContext
     /// <see cref="ReconstructionMap"/>, since mermaid content has no Markdig Inline tree to splice into.
     /// </summary>
     public IReadOnlyList<MermaidBlockContext> MermaidBlocks { get; init; } = [];
+
+    /// <summary>
+    /// Chunk id/span pairs for the allowlisted frontmatter fields extracted from <see cref="FrontmatterRawText"/>
+    /// (only when <c>translate-frontmatter-fields</c> is on) - each field is also present in
+    /// <see cref="Chunks"/> (<see cref="BlockKind.FrontmatterField"/>). Empty when there's no
+    /// frontmatter, the option is off, or no allowlisted field was found. See <c>FrontmatterFieldExtractor</c>.
+    /// </summary>
+    public IReadOnlyList<(string ChunkId, ExtractedTextSpan Span)> FrontmatterFields { get; init; } = [];
 }
