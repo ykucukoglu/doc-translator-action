@@ -4,7 +4,9 @@ All notable changes to this project are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
-Everything below is pending the first tagged release (`v1.0.0`).
+## [1.0.0] - 2026-08-24
+
+First tagged release.
 
 ### Added
 
@@ -51,11 +53,9 @@ Everything below is pending the first tagged release (`v1.0.0`).
 ### Security
 
 - The top-level error handler now redacts every configured API key/token from both the always-printed failure message and the `--verbose`/`INPUT_VERBOSE` full-exception dump, before either reaches stderr. No leak was found in any of the four provider SDKs' own exception messages, but this closes the gap deterministically (a literal substring replace against the known secret values) instead of relying on every current and future SDK version never echoing one back.
-
-### Security
-
 - `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), completing GitHub's recommended community-health-file checklist alongside the existing `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, and issue/PR templates.
 - All third-party actions used in this repo's own workflows (`actions/checkout`, `actions/setup-dotnet`, `actions/cache`, `github/codeql-action/*`) are now pinned to a full commit SHA instead of a mutable version tag - a tag can be silently repointed (by a compromised maintainer account or a force-pushed release, both of which have happened to widely-used actions), a SHA cannot. Dependabot still proposes updates via the trailing `# vN` comment.
 - `openai-base-url` could no longer be set from `config-path` under a fork `pull_request_target` run - same reasoning as the earlier `allow-fork-pull-request-target` fix, but sharper: the OpenAI SDK sends the real `Authorization: Bearer <openai-api-key>` header to whatever host this input names, with no allowlist, so a fork-PR-supplied `config-path` file could otherwise redirect it to an attacker-controlled server and exfiltrate the live API key on every request - independent of the forced dry-run, which only stops the git/GitHub side of that same attack surface. Found via `/security-review`.
 
-[Unreleased]: https://github.com/ykucukoglu/doc-translator-action/commits/main
+[Unreleased]: https://github.com/ykucukoglu/doc-translator-action/compare/v1.0.0...main
+[1.0.0]: https://github.com/ykucukoglu/doc-translator-action/releases/tag/v1.0.0
