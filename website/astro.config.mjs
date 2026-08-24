@@ -10,11 +10,13 @@ export default defineConfig({
   base: '/doc-translator-action',
   i18n: {
     defaultLocale: 'en',
-    // 'tr' is the first real dogfooded locale (see .github/workflows/website-dogfooding.yml) -
-    // [...slug].astro's routing already derives locale/path generically from each content entry's
-    // id, so this is the only config change adding it needs; it's harmless to list here even
-    // before any tr/*.md file exists (no content -> no routes for it yet).
-    locales: ['en', 'tr'],
+    // Deliberately just 'en' for now - website-dogfooding.yml (kept, dormant) already proved a
+    // real 'tr' locale works end to end (translated content, routing, a language switcher), but
+    // shipping only 2 of the site's ~6 pages in a second language read as more unfinished than
+    // useful. [...slug].astro's routing derives locale/path generically from each content entry's
+    // id already, so re-adding 'tr' here (and nothing else) is the only step needed if that
+    // changes later.
+    locales: ['en'],
     routing: {
       prefixDefaultLocale: false,
     },
