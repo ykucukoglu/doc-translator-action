@@ -10,6 +10,14 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
+
+// Astro.url.pathname already carries the /doc-translator-action base when deployed (Astro
+// resolves it internally from astro.config.mjs's `base`), so resolving it against `site` here
+// - rather than reaching for withBase() again - is what gives the correct, un-doubled absolute
+// URL. OG/Twitter cards require an absolute image URL; a relative one silently fails to preview
+// on every platform that consumes this markup.
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site).href;
+const ogImageUrl = new URL(withBase('og-image.png'), Astro.site).href;
 ---
 
 <!doctype html>
@@ -20,6 +28,20 @@ const { title, description } = Astro.props;
     <title>{title === 'doc-translator-action' ? title : `${title} · doc-translator-action`}</title>
     <meta name="description" content={description} />
     <link rel="icon" href={withBase('favicon.svg')} type="image/svg+xml" />
+    <link rel="canonical" href={canonicalUrl} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="doc-translator-action" />
+    <meta property="og:title" content={title === 'doc-translator-action' ? title : `${title} · doc-translator-action`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title === 'doc-translator-action' ? title : `${title} · doc-translator-action`} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
 
     <script is:inline>
       // Runs before first paint to avoid a flash of the wrong theme. Kept intentionally tiny

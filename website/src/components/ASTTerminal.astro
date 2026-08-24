@@ -1,0 +1,293 @@
+---
+/**
+ * A static, hand-curated walkthrough of the real pipeline in src/DocTranslator.Core/Parsing/
+ * InlineChunkExtractor.cs - not a live demo (no CLI is actually invoked; see the website plan's
+ * explicit Phase 2 decision on this). The four stages below were traced by hand against that
+ * file's actual encoding rules for the exact same "mixed-inline-formatting.md" fixture paragraph
+ * already shown untouched in the Real fixture panel above, so the two sections tell one
+ * consistent story instead of two unrelated examples: this shows *how*, that shows *proof*.
+ *
+ * Segment types, matching InlineChunkExtractor.AppendPlaceholder/AppendOpenTag/AppendCloseTag
+ * and PromptBuilder's own system-prompt description of them verbatim:
+ * - 'tag'         - a paired marker like <strong0>/</strong0>, <em1>/</em1> - the LLM translates
+ *                   only the text between a pair, never the marker itself.
+ * - 'placeholder' - an atomic marker like ⟦CODE0⟧ - copied verbatim, never opened or translated;
+ *                   the original span it stands for is substituted back in only at reconstruction.
+ */
+type Segment = { type: 'text' | 'tag' | 'placeholder'; text: string };
+
+const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Builds the exact HTML string for a stage's <pre> directly, rather than returning an array of
+// mixed strings/elements for Astro to render - the latter was measured (via a live DOM dump) to
+// insert its own pretty-printing whitespace between array items, which a plain flow layout hides
+// but `white-space: pre-wrap` renders as a stray literal linebreak before and after every single
+// segment. A hand-built string sidesteps the framework's own whitespace entirely.
+const renderSegments = (segments: Segment[]) =>
+  segments
+    .map((seg) =>
+      seg.type === 'text'
+        ? escapeHtml(seg.text)
+        : `<span class="ast-terminal__${seg.type}">${escapeHtml(seg.text)}</span>`
+    )
+    .join('');
+
+const parseStage = 'This paragraph has **bold text**, *italic text*, and ***bold italic text*** mixed with `inline code`.';
+
+const extractStage: Segment[] = [
+  { type: 'text', text: 'This paragraph has ' },
+  { type: 'tag', text: '<strong0>' },
+  { type: 'text', text: 'bold text' },
+  { type: 'tag', text: '</strong0>' },
+  { type: 'text', text: ', ' },
+  { type: 'tag', text: '<em1>' },
+  { type: 'text', text: 'italic text' },
+  { type: 'tag', text: '</em1>' },
+  { type: 'text', text: ', and ' },
+  { type: 'tag', text: '<strong2>' },
+  { type: 'tag', text: '<em3>' },
+  { type: 'text', text: 'bold italic text' },
+  { type: 'tag', text: '</em3>' },
+  { type: 'tag', text: '</strong2>' },
+  { type: 'text', text: ' mixed with ' },
+  { type: 'placeholder', text: '⟦CODE0⟧' },
+  { type: 'text', text: '.' },
+];
+
+const translateStage: Segment[] = [
+  { type: 'text', text: 'Bu paragrafta ' },
+  { type: 'tag', text: '<strong0>' },
+  { type: 'text', text: 'kalın metin' },
+  { type: 'tag', text: '</strong0>' },
+  { type: 'text', text: ', ' },
+  { type: 'tag', text: '<em1>' },
+  { type: 'text', text: 'italik metin' },
+  { type: 'tag', text: '</em1>' },
+  { type: 'text', text: ' ve ' },
+  { type: 'placeholder', text: '⟦CODE0⟧' },
+  { type: 'text', text: ' ile karışık ' },
+  { type: 'tag', text: '<strong2>' },
+  { type: 'tag', text: '<em3>' },
+  { type: 'text', text: 'kalın italik metin' },
+  { type: 'tag', text: '</em3>' },
+  { type: 'tag', text: '</strong2>' },
+  { type: 'text', text: ' bulunur.' },
+];
+
+const reconstructStage = 'Bu paragrafta **kalın metin**, *italik metin* ve `inline code` ile karışık ***kalın italik metin*** bulunur.';
+
+const stages = [
+  { n: 1, label: 'Parse', note: 'Markdig walks the real AST', body: parseStage },
+  { n: 2, label: 'Extract → sent to LLM', note: 'src/DocTranslator.Core/Parsing/InlineChunkExtractor.cs', body: extractStage },
+  { n: 3, label: 'Translate', note: 'Only the text between tags changes', body: translateStage },
+  { n: 4, label: 'Reconstruct', note: 'Tags and placeholders swap back to real Markdown', body: reconstructStage },
+] as const;
+---
+
+<section class="container ast-terminal" aria-labelledby="ast-terminal-heading">
+  <p class="eyebrow" id="ast-terminal-heading">How it works</p>
+  <p class="ast-terminal__caption">
+    The exact encoding rules this repo's own code runs, walked through one stage at a time — same fixture as
+    below, so <code>**bold text**</code> becomes <code>&lt;strong0&gt;</code> and <code>`inline code`</code>
+    becomes <code>⟦CODE0⟧</code> before either ever reaches an LLM.
+  </p>
+
+  <div class="ast-terminal__panel">
+    <div class="ast-terminal__bar">ast-pipeline.md</div>
+    <div class="ast-terminal__stages">
+      {
+        stages.map((stage, i) => (
+          <div class="ast-terminal__stage" data-ast-stage={i}>
+            <p class="ast-terminal__stage-label">
+              <span class="ast-terminal__stage-n tabular-nums">{stage.n}</span>
+              {stage.label}
+              <span class="ast-terminal__stage-note">{stage.note}</span>
+            </p>
+            {typeof stage.body === 'string' ? (
+              <pre>{stage.body}{i === stages.length - 1 && <span class="ast-terminal__cursor" aria-hidden="true" />}</pre>
+            ) : (
+              <pre set:html={renderSegments(stage.body)} />
+            )}
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .ast-terminal {
+    padding-block: var(--space-16);
+    border-top: var(--border-hairline);
+  }
+
+  .ast-terminal__caption {
+    margin-top: var(--space-2);
+    color: var(--color-ink-muted);
+    max-width: 44rem;
+  }
+
+  .ast-terminal__caption code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+
+  .ast-terminal__panel {
+    margin-top: var(--space-6);
+    border: var(--border-hairline);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .ast-terminal__bar {
+    padding: var(--space-2) var(--space-4);
+    border-bottom: var(--border-hairline);
+    background: var(--color-bg-raised);
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+  }
+
+  .ast-terminal__stages {
+    background: var(--color-code-bg);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ast-terminal__stage {
+    padding: var(--space-4);
+  }
+
+  .ast-terminal__stage + .ast-terminal__stage {
+    border-top: 1px dashed var(--color-code-rule);
+  }
+
+  .ast-terminal__stage-label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    margin: 0 0 var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-code-ink);
+  }
+
+  .ast-terminal__stage-n {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 1px solid var(--color-accent);
+    border-radius: 999px;
+    color: var(--color-accent);
+    font-size: 0.6875rem;
+  }
+
+  .ast-terminal__stage-note {
+    margin-left: auto;
+    color: var(--color-code-muted);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.6875rem;
+  }
+
+  .ast-terminal__stage pre {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-code);
+    line-height: 1.7;
+    color: var(--color-code-ink);
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+
+  /* :global(), deliberately: these two classes only ever exist on spans injected via the
+     stage <pre set:html={...}> above, not on anything Astro's compiler itself walked - content
+     from set:html never receives the data-astro-cid scoping attribute a normal scoped selector
+     here would compile to require, so an un-global .ast-terminal__tag rule silently never
+     matches (confirmed via computed style: both spans were inheriting the plain --color-code-ink
+     from their parent <pre>, not this rule, before this was global).
+
+     Paired <tagN>/</tagN> markers - the LLM translates only what's between them, never the
+     marker - vs. atomic ⟦PLACEHOLDER⟧ tokens, which are never opened at all; the original span
+     is substituted back in only at reconstruction. Two different colors so the distinction in
+     the caption above is visible here too, not just stated in prose. */
+  .ast-terminal__stage :global(.ast-terminal__tag) {
+    color: var(--color-accent);
+  }
+
+  .ast-terminal__stage :global(.ast-terminal__placeholder) {
+    color: var(--color-signal);
+  }
+
+  .ast-terminal__cursor {
+    display: inline-block;
+    width: 0.5em;
+    height: 1em;
+    background: var(--color-accent);
+    vertical-align: text-bottom;
+    margin-left: 0.15em;
+    animation: ast-terminal-blink 1.1s steps(1) infinite;
+  }
+
+  @keyframes ast-terminal-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  /* Hidden/revealed state only exists once the script below has run and opted a stage in - a
+     stage with no JS-added [data-pending] attribute (JS disabled, or the observer never firing)
+     renders fully visible from the start, same as every other section on the page. */
+  .ast-terminal__stage[data-pending] {
+    opacity: 0;
+    transform: translateY(0.5rem);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .ast-terminal__stage[data-pending].is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+
+<script>
+  // Plays once, staggered, when the panel first scrolls into view - reads as "watching the
+  // pipeline run" without actually running anything (this is still the static fixture from the
+  // frontmatter above). Stages start already visible in the DOM; only once this script confirms
+  // it's running does it opt them into a hidden starting state via [data-pending], so no-JS
+  // visitors and a not-yet-fired observer never end up with permanently blank stages.
+  const panel = document.querySelector<HTMLElement>('.ast-terminal__panel');
+  const stages = document.querySelectorAll<HTMLElement>('.ast-terminal__stage');
+
+  if (panel && stages.length > 0) {
+    stages.forEach((stage) => {
+      stage.dataset.pending = '';
+    });
+
+    // Reduced motion: skip the wait, not just the motion - a still-staggered multi-second reveal
+    // (even with each individual transition instantized to ~0 by the site-wide reduced-motion
+    // rule) is exactly the kind of delay that preference exists to remove.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const staggerMs = reduceMotion ? 0 : 450;
+
+    const observer = new IntersectionObserver(
+      (entries, obs) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          stages.forEach((stage, i) => {
+            setTimeout(() => stage.classList.add('is-visible'), i * staggerMs);
+          });
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.25 }
+    );
+    observer.observe(panel);
+  }
+</script>

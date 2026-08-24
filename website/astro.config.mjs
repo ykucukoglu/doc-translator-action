@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 
 // Published as a GitHub Pages *project* site (ykucukoglu.github.io/doc-translator-action/),
 // not a root domain - every internal link must go through src/utils/url.ts's withBase()
@@ -14,4 +15,7 @@ export default defineConfig({
       prefixDefaultLocale: false,
     },
   },
+  // Reads `site`/`base` above automatically - emits dist/sitemap-index.xml + dist/sitemap-0.xml
+  // at build time, one <url> per static route, already base-path-correct with no extra config.
+  integrations: [sitemap()],
 });

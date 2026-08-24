@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import ASTTerminal from '../components/ASTTerminal.astro';
 import CacheInspector from '../components/CacheInspector.astro';
 import WorkflowGenerator from '../components/WorkflowGenerator.astro';
 import { withBase } from '../utils/url';
@@ -34,7 +35,7 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
 >
   <section class="hero container">
     <div>
-      <p class="eyebrow">GitHub Action · .NET 9</p>
+      <p class="eyebrow">GitHub Action</p>
       <h1>Every code fence survives the trip.</h1>
       <p class="hero__sub">
         Markdown is parsed into a real AST — only the natural-language text is ever sent to an LLM. Code, diagrams,
@@ -69,6 +70,8 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
       </div>
     </div>
   </section>
+
+  <ASTTerminal />
 
   <section class="container diff-demo" aria-labelledby="diff-demo-heading">
     <p class="eyebrow" id="diff-demo-heading">Real fixture, not a mockup</p>
@@ -105,12 +108,12 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
     </dl>
   </section>
 
-  <section class="container" aria-labelledby="cache-heading">
+  <section class="container try-it" aria-labelledby="cache-heading">
     <p class="eyebrow" id="cache-heading">Try it — cost</p>
     <CacheInspector />
   </section>
 
-  <section class="container" aria-labelledby="workflow-heading">
+  <section class="container try-it" aria-labelledby="workflow-heading">
     <p class="eyebrow" id="workflow-heading">Try it — workflow</p>
     <WorkflowGenerator />
   </section>
@@ -120,6 +123,10 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
   .hero {
     padding-block: var(--space-16) var(--space-16);
     display: grid;
+    /* minmax(0, 1fr), not the implicit auto-sized single column a bare `display: grid` defaults
+       to below the breakpoint - the terminal's command line has its own overflow-x:auto scroll,
+       but only if this track doesn't first grow the whole grid past its container to fit it. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-12);
     align-items: center;
   }
@@ -134,16 +141,10 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
 
   .hero h1 {
     margin-top: var(--space-4);
-    font-size: 3.5rem;
+    font-size: var(--text-hero);
     line-height: 1.04;
     letter-spacing: -0.025em;
     text-wrap: balance;
-  }
-
-  @media (min-width: 48rem) {
-    .hero h1 {
-      font-size: 4rem;
-    }
   }
 
   .hero__sub {
@@ -184,7 +185,9 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
   }
 
   .terminal__body {
-    background: var(--color-bg);
+    /* Fixed dark code surface (see tokens.css) - the toolbar above still adapts to the page
+       theme, like a real terminal app's OS-chrome does, but the screen content stays dark. */
+    background: var(--color-code-bg);
     padding: var(--space-4) var(--space-4) var(--space-4);
     font-family: var(--font-mono);
     font-size: var(--text-small);
@@ -198,7 +201,7 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
   }
 
   .terminal__prompt {
-    color: var(--color-ink-muted);
+    color: var(--color-code-muted);
   }
 
   .terminal__ok {
@@ -210,7 +213,7 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
   }
 
   .terminal__arrow {
-    color: var(--color-ink);
+    color: var(--color-code-ink);
   }
 
   .terminal__cursor {
@@ -311,6 +314,7 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
   .diff-demo__panels {
     margin-top: var(--space-6);
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-4);
   }
 
@@ -341,6 +345,8 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
   .diff-demo__panel pre {
     margin: 0;
     padding: var(--space-4);
+    background: var(--color-code-bg);
+    color: var(--color-code-ink);
     font-size: var(--text-code);
     line-height: 1.6;
     white-space: pre-wrap;
@@ -352,9 +358,22 @@ Ayrıca vurgu için **içinde *italik* olan kalın metni** iç içe kullanabilir
     border-top: var(--border-hairline);
   }
 
+  /* The two "Try it" sections never got this same top-of-section rhythm - no padding-block, no
+     divider, no gap under the eyebrow - so they sat flush against whatever came before with no
+     deliberate spacing at all, unlike every other section on this page. */
+  .try-it {
+    padding-block: var(--space-16);
+    border-top: var(--border-hairline);
+  }
+
+  .try-it .eyebrow {
+    margin-bottom: var(--space-6);
+  }
+
   .features__list {
     margin: var(--space-6) 0 0;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0;
     border-top: var(--border-hairline);
   }
