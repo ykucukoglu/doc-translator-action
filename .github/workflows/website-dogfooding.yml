@@ -1,0 +1,78 @@
+name: Website Dogfooding
+
+# Uses this repository's own action to translate the showcase website's own docs
+# (website/src/content/docs/en/) - the Phase 2 "real dogfooding" item from the website plan,
+# completing it alongside the AST Terminal demo already built in Phase 1.5. Same pattern as
+# dogfooding.yml (which translates this repo's own docs/), scoped to the website's content
+# collection instead.
+#
+# Requires a GEMINI_API_KEY repository secret. On pull_request, runs in pr-mode: false (writes
+# files locally, no push) so PRs - including ones from forks without secret access - never open a
+# nested PR from within a check. On push to main, runs in full pr-mode: true and opens a real
+# translation PR; merging that PR (which lands new website/src/content/docs/tr/*.md files) is
+# what actually triggers deploy-docs.yml to rebuild and publish the tr locale.
+
+on:
+  push:
+    branches: [main]
+    paths: ['website/src/content/docs/en/**']
+  pull_request:
+    branches: [main]
+    paths: ['website/src/content/docs/en/**']
+  workflow_dispatch:
+    inputs:
+      pr_mode:
+        description: 'Open a real pull request with the translated docs (vs. a dry validation run)'
+        type: boolean
+        default: false
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15 # a stuck LLM request otherwise burns CI minutes up to GitHub's 360-minute job default
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Pinned to a full commit SHA, not a mutable tag - see ci.yml's checkout step for why.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2 # doc-translator-action diffs against the previous commit / base ref
+
+      # Same cache path/key convention as dogfooding.yml - the underlying cache is keyed
+      # per-file/per-language/per-content-hash internally, so sharing the actions/cache storage
+      # pool across both workflows is harmless (different source trees, no key collision) and
+      # avoids a second, uncoordinated cache namespace for what's still one repository's history.
+      - name: Restore translation cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .doc-translator-cache
+          key: doc-translator-cache-${{ github.run_id }}
+          restore-keys: |
+            doc-translator-cache-
+
+      # See dogfooding.yml's identical step for why this is computed in shell, not a GitHub
+      # Actions `A && B || C` expression.
+      - name: Determine pr-mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "pr_mode=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.pr_mode }}" = "true" ]; then
+            echo "pr_mode=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pr_mode=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Translate website docs
+        uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          target-languages: tr
+          source-path: website/src/content/docs/en
+          output-path-template: website/src/content/docs/{lang}/{relativePath}
+          pr-mode: ${{ steps.mode.outputs.pr_mode }}
+          # Same free-tier per-minute rate limit reasoning as dogfooding.yml's identical setting.
+          max-parallel-requests: 1
