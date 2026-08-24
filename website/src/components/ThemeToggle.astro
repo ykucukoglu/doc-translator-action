@@ -29,8 +29,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
+    /* 44px, not a tighter fit around the 16px icon - the WCAG/Apple/Material touch-target
+       minimum for a tap target, not just a visual size choice. */
+    width: 2.75rem;
+    height: 2.75rem;
     background: transparent;
     border: var(--border-hairline);
     border-radius: var(--radius-sm);

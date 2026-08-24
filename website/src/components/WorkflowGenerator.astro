@@ -216,6 +216,11 @@ const initialSecrets = secretsNeeded(DEFAULT_WORKFLOW_STATE);
   .workflow-generator__grid {
     margin-top: var(--space-6);
     display: grid;
+    /* minmax(0, 1fr), not the implicit auto-sized single column a bare `display: grid` defaults
+       to below the breakpoint - an auto track sizes itself to its content's intrinsic width (the
+       generated <pre> or a wide select), which can force the whole grid wider than its own
+       container instead of wrapping/scrolling inside it. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-8);
   }
 
@@ -236,7 +241,7 @@ const initialSecrets = secretsNeeded(DEFAULT_WORKFLOW_STATE);
   .workflow-generator__advanced > label {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-2);
     color: var(--color-ink-muted);
   }
 
@@ -246,11 +251,34 @@ const initialSecrets = secretsNeeded(DEFAULT_WORKFLOW_STATE);
   .workflow-generator__advanced input[type='text'],
   .workflow-generator__advanced input[type='number'],
   .workflow-generator__advanced select {
-    padding: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     border: var(--border-hairline);
     border-radius: var(--radius-sm);
     background: var(--color-bg);
     color: var(--color-ink);
+    /* Below 16px, iOS Safari zooms the whole page in on focus - the label above can stay small,
+       but the control itself needs to clear that threshold. */
+    font-size: 1rem;
+  }
+
+  /* The native select arrow is drawn by the OS, not this design system - a plain gray triangle
+     that clashes with the hairline-border, no-shadow language everywhere else. Two literal-color
+     SVGs (light/dark), not one colored via a CSS variable, because a value inside a data-URI
+     background-image can't resolve the page's custom properties - it's a separate resource. */
+  .workflow-generator__form select,
+  .workflow-generator__advanced select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: var(--space-8);
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
+    background-size: 0.7rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' stroke='%238a93a0' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
+  :global([data-theme='light']) .workflow-generator__form select,
+  :global([data-theme='light']) .workflow-generator__advanced select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' stroke='%235b6470' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
   fieldset {
@@ -268,14 +296,41 @@ const initialSecrets = secretsNeeded(DEFAULT_WORKFLOW_STATE);
     margin-bottom: var(--space-1);
   }
 
-  /* Higher specificity than ".workflow-generator__form > label" (class+type) is required here -
-     a bare class selector alone would lose that cascade fight and stack these horizontally. */
-  label.workflow-generator__radio,
-  label.workflow-generator__checkbox {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-2);
+  /* !important, deliberately: ".workflow-generator__form > label" picks up a "label" type
+     selector that Astro's scoping then duplicates a scoping attribute onto (once per simple
+     selector in that chain), landing at a higher specificity than even a doubled class here can
+     beat - the type selector alone outranks any number of chained classes once every other tier
+     ties, and which selector "wins" in Astro's compiled output has proven inconsistent even
+     between the two selectors in this same list. !important on these two properties only ends
+     the fight for good instead of leaving something that "wins" only until the next unrelated
+     CSS edit shifts a selector's compiled form. */
+  .workflow-generator__radio.workflow-generator__radio,
+  .workflow-generator__checkbox.workflow-generator__checkbox {
+    flex-direction: row !important;
+    align-items: center !important;
+    /* 0, not a value here - spacing comes from margin-right on the input itself below, since
+       flex gap measured as computed but rendered as zero space next to these native controls.
+       Explicit 0 (not just omitting this line) so the cascade can't hand back some other gap
+       value from elsewhere in this file. */
+    gap: 0 !important;
     color: var(--color-ink);
+  }
+
+  /* flex gap on the parent measured as computed but rendered as zero space next to these two
+     specific native controls - a real, reproducible gap between what getComputedStyle reports
+     and what actually renders for a replaced form element as a flex child. margin-right on the
+     control itself doesn't depend on the parent's gap implementation agreeing with a native
+     input's intrinsic box the same way a regular element would, so it renders correctly
+     regardless of that mismatch. */
+  .workflow-generator__form input[type='radio'],
+  .workflow-generator__form input[type='checkbox'],
+  .workflow-generator__advanced input[type='radio'],
+  .workflow-generator__advanced input[type='checkbox'] {
+    accent-color: var(--color-accent);
+    margin: 0 var(--space-3) 0 0;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
   }
 
   .workflow-generator__hint {
@@ -299,7 +354,17 @@ const initialSecrets = secretsNeeded(DEFAULT_WORKFLOW_STATE);
   .workflow-generator__advanced[open] {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+  }
+
+  /* margin-top on "> * + *", not `gap` on the flex container above: reproduced directly in this
+     browser engine as a `<details>`-specific quirk - a `<details open>` with `display: flex`
+     reports its `gap` as correctly applied via getComputedStyle, but renders every child flush
+     against the next with zero space regardless of the gap value. A plain `<div>` with the exact
+     same flex/gap declarations doesn't have this problem, so the fix is scoped to this element
+     rather than flex gap in general. `* + *` also conveniently skips the first child (`<summary>`)
+     without needing to name it, since nothing precedes it to match the `+` combinator against. */
+  .workflow-generator__advanced[open] > * + * {
+    margin-top: var(--space-4);
   }
 
   .workflow-generator__secrets {
@@ -377,6 +442,10 @@ const initialSecrets = secretsNeeded(DEFAULT_WORKFLOW_STATE);
     padding: var(--space-4);
     max-height: 28rem;
     overflow: auto;
+    /* Fixed dark code surface (see tokens.css) - the toolbar above still adapts to the page
+       theme, the generated YAML itself reads as code regardless of it. */
+    background: var(--color-code-bg);
+    color: var(--color-code-ink);
     font-size: var(--text-code);
     line-height: 1.6;
     white-space: pre;

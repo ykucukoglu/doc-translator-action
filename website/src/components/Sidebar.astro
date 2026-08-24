@@ -14,25 +14,38 @@ const docsPages = [
 ];
 ---
 
-<nav aria-label="Docs" class="docs-sidebar">
-  <p class="eyebrow">Docs</p>
-  <ul>
-    {
-      docsPages.map((page) => (
-        <li>
-          <a href={withBase(page.href)} aria-current={currentPath.endsWith(page.href) ? 'page' : undefined}>
-            {page.label}
-          </a>
-        </li>
-      ))
-    }
-  </ul>
-</nav>
+<details class="docs-sidebar" open data-collapsible>
+  <summary aria-label="Docs pages">
+    <span class="eyebrow">Docs</span>
+  </summary>
+  <nav aria-label="Docs">
+    <ul>
+      {
+        docsPages.map((page) => (
+          <li>
+            <a href={withBase(page.href)} aria-current={currentPath.endsWith(page.href) ? 'page' : undefined}>
+              {page.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+</details>
 
 <style>
   .docs-sidebar {
     position: sticky;
     top: calc(var(--space-16) + var(--space-4));
+  }
+
+  .docs-sidebar summary {
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .docs-sidebar summary::-webkit-details-marker {
+    display: none;
   }
 
   .docs-sidebar ul {
@@ -62,5 +75,39 @@ const docsPages = [
     color: var(--color-ink);
     border-left-color: var(--color-accent);
     font-weight: 500;
+  }
+
+  /* Below the 3-column breakpoint, this becomes a compact, closed-by-default disclosure instead
+     of a full list sitting in the reading flow - see the shared collapse script in DocsLayout. */
+  @media (max-width: 63.9375rem) {
+    .docs-sidebar {
+      position: static;
+      border: var(--border-hairline);
+      border-radius: var(--radius-sm);
+      padding: var(--space-2) var(--space-3);
+    }
+    .docs-sidebar summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .docs-sidebar summary::after {
+      content: '▸';
+      color: var(--color-ink-muted);
+      font-size: var(--text-small);
+      transition: transform 0.15s ease;
+    }
+    .docs-sidebar[open] summary::after {
+      transform: rotate(90deg);
+    }
+    .docs-sidebar nav {
+      margin-top: var(--space-2);
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .docs-sidebar summary {
+      pointer-events: none;
+    }
   }
 </style>

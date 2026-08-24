@@ -61,22 +61,29 @@ const headings = [
   </table>
 
   <h2 id="advanced-inputs">Advanced inputs</h2>
-  <table data-input-table="advanced">
-    <thead>
-      <tr><th>Input</th><th>Default</th><th>Description</th></tr>
-    </thead>
-    <tbody>
-      {
-        advancedInputs.map((input) => (
-          <tr data-input-row data-input-name={input.name}>
-            <td><code>{input.name}</code></td>
-            <td>{input.default !== null ? <code>{input.default}</code> : '—'}</td>
-            <td>{input.description}</td>
-          </tr>
-        ))
-      }
-    </tbody>
-  </table>
+  <p>
+    CI tuning, provider-specific overrides, and fork-PR safety — every field the Workflow Generator's own "Advanced
+    configuration" disclosure covers, plus the CI-only inputs it deliberately leaves out.
+  </p>
+  <details class="config-advanced">
+    <summary>Show all {advancedInputs.length} advanced inputs</summary>
+    <table data-input-table="advanced">
+      <thead>
+        <tr><th>Input</th><th>Default</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        {
+          advancedInputs.map((input) => (
+            <tr data-input-row data-input-name={input.name}>
+              <td><code>{input.name}</code></td>
+              <td>{input.default !== null ? <code>{input.default}</code> : '—'}</td>
+              <td>{input.description}</td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+  </details>
 
   <h2 id="outputs">Outputs</h2>
   <table>
@@ -95,3 +102,38 @@ const headings = [
     </tbody>
   </table>
 </DocsLayout>
+
+<style>
+  /* Same disclosure language as Sidebar/TOC's mobile nav and the Workflow Generator's own
+     "Advanced configuration" - 23 rows most visitors never need to touch is exactly the kind of
+     long tail that pattern exists for. Closed by default rather than open: reference content
+     benefits from the anchor above (`#advanced-inputs`) still landing correctly on a scroll/TOC
+     click even while collapsed, and modern browsers auto-expand a closed <details> when their
+     native find-in-page (Ctrl/Cmd+F) matches text inside one. */
+  .config-advanced summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--color-ink);
+    list-style: none;
+  }
+
+  .config-advanced summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .config-advanced summary::after {
+    content: '▸';
+    display: inline-block;
+    margin-left: var(--space-2);
+    color: var(--color-ink-muted);
+    transition: transform 0.15s ease;
+  }
+
+  .config-advanced[open] summary::after {
+    transform: rotate(90deg);
+  }
+
+  .config-advanced[open] summary {
+    margin-bottom: var(--space-4);
+  }
+</style>

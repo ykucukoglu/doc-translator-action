@@ -39,6 +39,9 @@
   border: var(--border-hairline);
   border-radius: var(--radius-sm);
   padding: 0.1em 0.35em;
+  /* An inline code span (a file path, a long flag name) has no spaces to wrap on - without this,
+     it pushes straight past the container edge on a narrow viewport instead of breaking. */
+  overflow-wrap: break-word;
 }
 
 .prose pre {

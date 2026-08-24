@@ -14,15 +14,38 @@
   --color-accent-ink: #06231a;
   --color-signal: #e3a23d;
 
+  /* Code/terminal surfaces (the hero terminal, generated-YAML output, the before/after fixture
+     panel) are a distinctly recessed panel, a clear step beyond --color-bg-raised's lighter
+     "card" treatment, so code reads as code at a glance. Which *direction* that step takes is
+     per-theme, not a fixed dark value dropped onto both: dark theme goes darker (cool
+     near-black, "looking into a screen"); light theme stays light but goes warmer/deeper (a
+     tan/khaki step beyond bg-raised, not an inverted dark block, which read as a heavy, jarring
+     cutout against this theme's own airy cream palette). --color-accent/--color-signal (not a
+     separate fixed pair) supply the terminal's checkmark colors in both directions, since each
+     is already tuned for legibility against its own theme's typical surface luminance.
+     Scoped to the hand-built surfaces above only - .prose's Shiki-highlighted fenced code blocks
+     keep the plain adaptive --color-bg-raised treatment, since forcing this background behind
+     syntax-highlighting colors tuned for a different theme risks poor contrast there without
+     also reconfiguring Shiki. */
+  --color-code-bg: #0d1116;
+  --color-code-ink: #e7ecef;
+  --color-code-muted: #7b8391;
+  --color-code-rule: #262a30;
+
   --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 
-  --text-hero: 3.5rem;
+  /* Fluid between a 320px phone (36px) and roughly a 1040px+ viewport (64px), instead of
+     jumping between fixed sizes at a breakpoint. */
+  --text-hero: clamp(2.25rem, 1.5rem + 4vw, 4rem);
   --text-h1: 2.25rem;
   --text-h2: 1.75rem;
   --text-h3: 1.375rem;
   --text-h4: 1.125rem;
-  --text-body-lg: 1.125rem;
+  /* Fluid 16px (a 375px phone) to 18px (~720px+) - at a fixed 18px, the .prose reading column on
+     a narrow phone measures well under the ~45-character-per-line readability floor; 16px gives
+     that column room to breathe without shrinking desktop's already-comfortable size. */
+  --text-body-lg: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
   --text-body: 1rem;
   --text-small: 0.875rem;
   --text-code: 0.9375rem;
@@ -56,6 +79,13 @@
   --color-accent: #1f7a5c;
   --color-accent-ink: #f5fbf8;
   --color-signal: #b5730e;
+
+  /* Light, not dark - a warm tan/khaki step beyond --color-bg-raised, in the same family as this
+     theme's own cream palette, rather than the dark theme's inverted near-black treatment. */
+  --color-code-bg: #ebe0c8;
+  --color-code-ink: #3a2f1f;
+  --color-code-muted: #8a7a5f;
+  --color-code-rule: #d9c9a3;
 
   color-scheme: light;
 }

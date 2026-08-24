@@ -127,6 +127,10 @@ const formatUsd = (n: number) => `$${n.toFixed(2)}`;
   .cache-inspector__grid {
     margin-top: var(--space-6);
     display: grid;
+    /* minmax(0, 1fr), not the implicit auto-sized single column a bare `display: grid` defaults
+       to below the breakpoint - an auto track sizes itself to its content's intrinsic width,
+       which can force the whole grid wider than its own container instead of fitting inside it. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-8);
   }
 
@@ -145,7 +149,7 @@ const formatUsd = (n: number) => `$${n.toFixed(2)}`;
   .cache-inspector__form label {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
+    gap: var(--space-2);
     font-size: var(--text-small);
     color: var(--color-ink-muted);
   }
@@ -157,6 +161,9 @@ const formatUsd = (n: number) => `$${n.toFixed(2)}`;
     background: var(--color-bg);
     color: var(--color-ink);
     width: 100%;
+    /* Below 16px, iOS Safari zooms the whole page in on focus - the label above can stay small,
+       but the control itself needs to clear that threshold. */
+    font-size: 1rem;
   }
 
   .cache-inspector__runtype {
@@ -174,17 +181,38 @@ const formatUsd = (n: number) => `$${n.toFixed(2)}`;
     color: var(--color-ink-muted);
   }
 
-  /* Higher specificity than ".cache-inspector__form label" (class+type) is required here - a
-     bare class selector alone would lose that cascade fight and stack these vertically. */
-  label.cache-inspector__radio {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-2);
+  /* !important, deliberately: ".cache-inspector__form label" picks up a "label" type selector
+     Astro's scoping then duplicates a scoping attribute onto (once per simple selector in that
+     descendant chain), landing at a higher specificity than even a doubled class here can beat
+     - the type selector alone outranks any number of chained classes once every other tier ties.
+     Chasing that arithmetic through Astro's compiler output cost real time twice over in this
+     file alone; !important on these two properties only ends it for good rather than leaving a
+     rule that "wins" only until the next unrelated CSS edit shifts a selector's compiled form. */
+  .cache-inspector__radio.cache-inspector__radio {
+    flex-direction: row !important;
+    align-items: center !important;
+    /* 0, not a value here - spacing comes from margin-right on the input itself below, since
+       flex gap measured as computed but rendered as zero space next to this native control.
+       Explicit 0 (not just omitting this line) so the cascade can't hand back some other gap
+       value from elsewhere in this file. */
+    gap: 0 !important;
     color: var(--color-ink);
   }
 
   .cache-inspector__hitrate input[type='range'] {
     accent-color: var(--color-accent);
+  }
+
+  /* flex gap on the parent measured as computed but rendered as zero space next to this native
+     control - margin-right on the control itself doesn't depend on the parent's gap
+     implementation agreeing with a native input's intrinsic box the way a regular element would,
+     so it renders correctly regardless of that mismatch. */
+  .cache-inspector__form input[type='radio'] {
+    accent-color: var(--color-accent);
+    margin: 0 var(--space-3) 0 0;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
   }
 
   .cache-inspector__results table {
