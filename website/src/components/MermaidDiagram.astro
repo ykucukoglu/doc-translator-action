@@ -1,0 +1,126 @@
+---
+interface Props {
+  /** Raw mermaid diagram source, e.g. a "flowchart LR" block. */
+  diagram: string;
+  caption?: string;
+}
+const { diagram, caption } = Astro.props;
+const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
+---
+
+<figure class="mermaid-figure">
+  <div class="mermaid-target" data-diagram-id={id} data-diagram={diagram} data-state="loading">
+    <span class="mermaid-skeleton" aria-hidden="true"></span>
+  </div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>
+
+<style>
+  .mermaid-figure {
+    margin: var(--space-6) 0;
+    padding: var(--space-4);
+    border: var(--border-hairline);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-raised);
+    overflow-x: auto;
+  }
+
+  /* A reserved-height placeholder, not the bare 2rem gap this used to be - mermaid.render() is
+     genuinely fast once its JS has loaded (see the perf note below), but the JS itself still has
+     to download and execute first, and an empty box for that whole window reads as "broken",
+     not "loading", to anyone watching it. */
+  .mermaid-target {
+    min-height: 14rem;
+  }
+
+  .mermaid-target[data-state='ready'],
+  .mermaid-target[data-state='error'] {
+    min-height: 0;
+  }
+
+  .mermaid-skeleton {
+    display: block;
+    height: 14rem;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(
+      100deg,
+      var(--color-bg) 30%,
+      var(--color-rule) 50%,
+      var(--color-bg) 70%
+    );
+    background-size: 200% 100%;
+    animation: mermaid-skeleton-sweep 1.4s ease-in-out infinite;
+  }
+
+  @keyframes mermaid-skeleton-sweep {
+    from {
+      background-position: 150% 0;
+    }
+    to {
+      background-position: -50% 0;
+    }
+  }
+
+  .mermaid-target :global(svg) {
+    max-width: 100%;
+  }
+
+  figcaption {
+    margin-top: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    color: var(--color-ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+</style>
+
+<script>
+  import mermaid from 'mermaid';
+
+  // The default mermaid theme is exactly the purple/gradient look this site's design
+  // explicitly avoids - always pass an explicit 'base' theme + themeVariables sourced from
+  // this page's own CSS custom properties, so diagrams always match the current light/dark
+  // theme instead of mermaid's own built-in palette.
+  function readThemeVariables() {
+    const styles = getComputedStyle(document.documentElement);
+    const read = (name: string) => styles.getPropertyValue(name).trim();
+    return {
+      background: read('--color-bg-raised'),
+      primaryColor: read('--color-bg'),
+      primaryTextColor: read('--color-ink'),
+      primaryBorderColor: read('--color-accent'),
+      lineColor: read('--color-ink-muted'),
+      secondaryColor: read('--color-bg-raised'),
+      tertiaryColor: read('--color-bg'),
+      fontFamily: read('--font-mono'),
+    };
+  }
+
+  async function renderOne(target: HTMLElement) {
+    const diagram = target.dataset.diagram ?? '';
+    const id = target.dataset.diagramId ?? 'mermaid';
+    try {
+      const { svg } = await mermaid.render(id, diagram);
+      target.innerHTML = svg;
+      target.dataset.state = 'ready';
+    } catch (error) {
+      target.textContent = 'Diagram failed to render.';
+      target.dataset.state = 'error';
+      console.error('mermaid render failed', error);
+    }
+  }
+
+  async function renderAll() {
+    mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: readThemeVariables() });
+
+    const targets = document.querySelectorAll<HTMLElement>('.mermaid-target[data-diagram]');
+    // Independent diagrams, each awaiting its own mermaid.render() call - Promise.all so a page
+    // with more than one (see /architecture) renders them concurrently instead of the second
+    // one sitting idle behind the first's render time for no reason.
+    await Promise.all(Array.from(targets, (target) => renderOne(target)));
+  }
+
+  renderAll();
+  window.addEventListener('themechange', renderAll);
+</script>

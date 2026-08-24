@@ -1,0 +1,28 @@
+---
+import { getCollection, render } from 'astro:content';
+import DocsLayout from '../layouts/DocsLayout.astro';
+
+// Entry ids are "{locale}/{rest}" (e.g. "en/getting-started") since content lives under
+// src/content/docs/{locale}/. The default locale ('en', matching astro.config.mjs's
+// defaultLocale + prefixDefaultLocale: false) gets a bare URL; any other locale keeps its
+// prefix - this is the only place Phase 2 needs to touch to add a real second locale.
+export async function getStaticPaths() {
+  const defaultLocale = 'en';
+  const entries = await getCollection('docs');
+  return entries.map((entry) => {
+    const [locale, ...rest] = entry.id.split('/');
+    const path = rest.join('/');
+    return {
+      params: { slug: locale === defaultLocale ? path : `${locale}/${path}` },
+      props: { entry },
+    };
+  });
+}
+
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+---
+
+<DocsLayout title={entry.data.title} description={entry.data.description} headings={headings}>
+  <Content />
+</DocsLayout>

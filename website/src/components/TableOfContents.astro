@@ -1,0 +1,189 @@
+---
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+interface Props {
+  headings: Heading[];
+}
+const { headings } = Astro.props;
+const items = headings.filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+{
+  items.length > 0 && (
+    <details class="toc" open data-collapsible>
+      <summary aria-label="On this page">
+        <span class="eyebrow">On this page</span>
+      </summary>
+      <nav aria-label="On this page">
+        <ul>
+          {items.map((h) => (
+            <li class={h.depth === 3 ? 'toc__sub' : undefined}>
+              <a href={`#${h.slug}`} data-toc-link={h.slug}>
+                {h.text}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </details>
+  )
+}
+
+<style>
+  .toc {
+    position: sticky;
+    top: calc(var(--space-16) + var(--space-4));
+  }
+
+  .toc summary {
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .toc summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .toc ul {
+    list-style: none;
+    margin: var(--space-3) 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .toc a {
+    display: block;
+    padding: var(--space-1) 0 var(--space-1) var(--space-3);
+    border-left: 2px solid transparent;
+    text-decoration: none;
+    font-size: var(--text-small);
+    color: var(--color-ink-muted);
+  }
+
+  .toc a:hover {
+    color: var(--color-ink);
+  }
+
+  /* Which section is actually on screen right now - set by the IntersectionObserver below,
+     not just a static list of links (the "where am I?" problem a plain TOC doesn't answer). */
+  .toc a[aria-current='true'] {
+    color: var(--color-ink);
+    border-left-color: var(--color-accent);
+    font-weight: 500;
+  }
+
+  .toc__sub {
+    padding-left: var(--space-4);
+  }
+
+  /* Below the 3-column breakpoint, this becomes a compact, closed-by-default disclosure instead
+     of a full link list sitting in the reading flow - see the shared collapse script below. */
+  @media (max-width: 63.9375rem) {
+    .toc {
+      position: static;
+      border: var(--border-hairline);
+      border-radius: var(--radius-sm);
+      padding: var(--space-2) var(--space-3);
+    }
+    .toc summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .toc summary::after {
+      content: '▸';
+      color: var(--color-ink-muted);
+      font-size: var(--text-small);
+      transition: transform 0.15s ease;
+    }
+    .toc[open] summary::after {
+      transform: rotate(90deg);
+    }
+    .toc nav {
+      margin-top: var(--space-2);
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .toc summary {
+      pointer-events: none;
+    }
+  }
+</style>
+
+<script>
+  // Scrollspy: highlights the TOC entry for whichever heading is currently nearest the top of
+  // the viewport, so scrolling through a long page always answers "which section am I in?"
+  // instead of just listing links. Re-queries on every navigation since this runs once per page.
+  const links = document.querySelectorAll<HTMLAnchorElement>('.toc a[data-toc-link]');
+  if (links.length > 0) {
+    const headings = Array.from(links)
+      .map((link) => document.getElementById(link.dataset.tocLink ?? ''))
+      .filter((el): el is HTMLElement => el !== null);
+
+    const setActive = (slug: string) => {
+      links.forEach((link) => {
+        if (link.dataset.tocLink === slug) {
+          link.setAttribute('aria-current', 'true');
+        } else {
+          link.removeAttribute('aria-current');
+        }
+      });
+    };
+
+    // Recomputed from real element positions every time, not from which heading the observer
+    // last reported as intersecting - a narrow "isIntersecting" band goes stale on a fast
+    // scroll or a jump (a TOC click, browser back/forward with an anchor) that lands a heading
+    // outside the band entirely, since nothing ever reports "entering" it. Walking all headings
+    // in document order and keeping the last one whose top has already crossed the threshold
+    // line gives the correct answer regardless of how the scroll position got there.
+    const THRESHOLD_FRACTION = 0.15;
+
+    const recomputeActive = () => {
+      // At the very bottom of the page, the last heading's own top can sit just below the
+      // threshold line forever if there isn't enough room after it to scroll any further - with
+      // nowhere left to go, it's still the section being read, so force it active rather than
+      // leaving the previous section stuck as "current".
+      const atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 1;
+      if (atBottom) {
+        setActive(headings[headings.length - 1]!.id);
+        return;
+      }
+
+      const thresholdY = window.innerHeight * THRESHOLD_FRACTION;
+      let current = headings[0]!;
+      for (const heading of headings) {
+        if (heading.getBoundingClientRect().top <= thresholdY) {
+          current = heading;
+        } else {
+          break; // headings are already in document order
+        }
+      }
+      setActive(current.id);
+    };
+
+    // A plain rAF-throttled scroll listener, not IntersectionObserver - a large jump (a TOC
+    // click, browser back/forward landing on an anchor, a fast fling) can cross a heading's
+    // whole observation band between the browser's intersection checks, so the observer never
+    // reports it at all. A scroll listener recomputing from real positions every frame has no
+    // such gap.
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        recomputeActive();
+        ticking = false;
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    recomputeActive();
+  }
+</script>

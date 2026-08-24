@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { withBase } from '../utils/url';
+---
+
+<BaseLayout title="Not found" description="This page doesn't exist.">
+  <section class="container not-found">
+    <p class="eyebrow">Error</p>
+    <h1>404</h1>
+    <p>This page doesn't exist. The chunk you're looking for was never extracted.</p>
+    <a href={withBase('/')}>← Back home</a>
+  </section>
+</BaseLayout>
+
+<style>
+  .not-found {
+    padding-block: var(--space-24);
+    text-align: center;
+  }
+
+  .not-found h1 {
+    margin-top: var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--text-hero);
+  }
+
+  .not-found p {
+    margin-top: var(--space-4);
+    color: var(--color-ink-muted);
+  }
+
+  .not-found a {
+    display: inline-block;
+    margin-top: var(--space-6);
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+</style>

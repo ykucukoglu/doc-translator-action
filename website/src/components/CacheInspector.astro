@@ -1,0 +1,317 @@
+---
+import { computeCacheEconomics, ILLUSTRATIVE_RATE_PER_MILLION_TOKENS } from '../utils/cache-math';
+
+const defaults = {
+  fileCount: 40,
+  chunksPerFile: 18,
+  tokensPerChunk: 45,
+  languageCount: 3,
+  hitRatePercent: 85,
+  firstRun: false,
+};
+
+// Runs once at build time so the table is fully populated in the initial server-rendered
+// HTML - the client script re-runs this exact same function on every input change and only
+// ever updates existing cells' textContent, so nothing shifts on interaction.
+const initial = computeCacheEconomics(defaults);
+
+const formatInt = new Intl.NumberFormat('en-US');
+const formatUsd = (n: number) => `$${n.toFixed(2)}`;
+---
+
+<section class="cache-inspector" aria-labelledby="cache-inspector-heading">
+  <h3 id="cache-inspector-heading">Zero-cost cache inspector</h3>
+  <p class="cache-inspector__lede">
+    The content-hash cache is per chunk, per target language. Model a run and see exactly how much translation work
+    the cache avoids.
+  </p>
+
+  <div class="cache-inspector__grid">
+    <form class="cache-inspector__form" aria-label="Cache economics inputs">
+      <label>
+        <span>Files</span>
+        <input type="number" id="ci-files" min="1" max="500" value={defaults.fileCount} class="tabular-nums" />
+      </label>
+      <label>
+        <span>Chunks / file</span>
+        <input type="number" id="ci-chunks" min="1" max="200" value={defaults.chunksPerFile} class="tabular-nums" />
+      </label>
+      <label>
+        <span>Avg tokens / chunk</span>
+        <input type="number" id="ci-tokens" min="5" max="500" value={defaults.tokensPerChunk} class="tabular-nums" />
+      </label>
+      <label>
+        <span>Target languages</span>
+        <input type="number" id="ci-langs" min="1" max="10" value={defaults.languageCount} class="tabular-nums" />
+      </label>
+
+      <fieldset class="cache-inspector__runtype">
+        <legend>Run type</legend>
+        <label class="cache-inspector__radio">
+          <input type="radio" name="ci-runtype" id="ci-runtype-incremental" checked />
+          <span>Incremental</span>
+        </label>
+        <label class="cache-inspector__radio">
+          <input type="radio" name="ci-runtype" id="ci-runtype-firstrun" />
+          <span>First run (backfill)</span>
+        </label>
+      </fieldset>
+
+      <label class="cache-inspector__hitrate">
+        <span>Cache hit rate <output id="ci-hitrate-value" for="ci-hitrate" class="tabular-nums">{defaults.hitRatePercent}%</output></span>
+        <input type="range" id="ci-hitrate" min="0" max="100" value={defaults.hitRatePercent} />
+      </label>
+    </form>
+
+    <div class="cache-inspector__results">
+      <table>
+        <tbody>
+          <tr>
+            <th>Chunk × language pairs</th>
+            <td id="ci-out-pairs" class="tabular-nums">{formatInt.format(initial.pairs)}</td>
+          </tr>
+          <tr>
+            <th>Uncached this run</th>
+            <td id="ci-out-uncached" class="tabular-nums">{formatInt.format(initial.uncachedPairs)}</td>
+          </tr>
+          <tr>
+            <th>Input tokens — no cache</th>
+            <td id="ci-out-tokens-nocache" class="tabular-nums">{formatInt.format(initial.tokensNoCache)}</td>
+          </tr>
+          <tr>
+            <th>Input tokens — with cache</th>
+            <td id="ci-out-tokens-withcache" class="tabular-nums">{formatInt.format(initial.tokensWithCache)}</td>
+          </tr>
+          <tr>
+            <th>Tokens saved</th>
+            <td id="ci-out-tokens-saved" class="tabular-nums">{formatInt.format(initial.tokensSaved)}</td>
+          </tr>
+          <tr class="cache-inspector__highlight">
+            <th>% saved</th>
+            <td id="ci-out-percent" class="tabular-nums">{initial.percentSaved.toFixed(0)}%</td>
+          </tr>
+          <tr>
+            <th>Illustrative cost — no cache</th>
+            <td id="ci-out-cost-nocache" class="tabular-nums">{formatUsd(initial.costNoCache)}</td>
+          </tr>
+          <tr>
+            <th>Illustrative cost — with cache</th>
+            <td id="ci-out-cost-withcache" class="tabular-nums">{formatUsd(initial.costWithCache)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="cache-inspector__bar-track" role="presentation">
+        <div class="cache-inspector__bar-fill" id="ci-bar-fill" style={`width: ${initial.percentSaved}%`}></div>
+      </div>
+      <p class="cache-inspector__note">
+        Cost figures are illustrative only, at a reference rate of ${ILLUSTRATIVE_RATE_PER_MILLION_TOKENS.toFixed(2)}
+        / 1M input tokens — actual pricing varies by provider and model.
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .cache-inspector {
+    border: var(--border-hairline);
+    border-radius: var(--radius-md);
+    padding: var(--space-6);
+  }
+
+  .cache-inspector__lede {
+    margin-top: var(--space-2);
+    color: var(--color-ink-muted);
+    max-width: 40rem;
+  }
+
+  .cache-inspector__grid {
+    margin-top: var(--space-6);
+    display: grid;
+    /* minmax(0, 1fr), not the implicit auto-sized single column a bare `display: grid` defaults
+       to below the breakpoint - an auto track sizes itself to its content's intrinsic width,
+       which can force the whole grid wider than its own container instead of fitting inside it. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+
+  @media (min-width: 56rem) {
+    .cache-inspector__grid {
+      grid-template-columns: 16rem minmax(0, 1fr);
+    }
+  }
+
+  .cache-inspector__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .cache-inspector__form label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    font-size: var(--text-small);
+    color: var(--color-ink-muted);
+  }
+
+  .cache-inspector__form input[type='number'] {
+    padding: var(--space-2);
+    border: var(--border-hairline);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    width: 100%;
+    /* Below 16px, iOS Safari zooms the whole page in on focus - the label above can stay small,
+       but the control itself needs to clear that threshold. */
+    font-size: 1rem;
+  }
+
+  .cache-inspector__runtype {
+    border: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .cache-inspector__runtype legend {
+    padding: 0;
+    font-size: var(--text-small);
+    color: var(--color-ink-muted);
+  }
+
+  /* !important, deliberately: ".cache-inspector__form label" picks up a "label" type selector
+     Astro's scoping then duplicates a scoping attribute onto (once per simple selector in that
+     descendant chain), landing at a higher specificity than even a doubled class here can beat
+     - the type selector alone outranks any number of chained classes once every other tier ties.
+     Chasing that arithmetic through Astro's compiler output cost real time twice over in this
+     file alone; !important on these two properties only ends it for good rather than leaving a
+     rule that "wins" only until the next unrelated CSS edit shifts a selector's compiled form. */
+  .cache-inspector__radio.cache-inspector__radio {
+    flex-direction: row !important;
+    align-items: center !important;
+    /* 0, not a value here - spacing comes from margin-right on the input itself below, since
+       flex gap measured as computed but rendered as zero space next to this native control.
+       Explicit 0 (not just omitting this line) so the cascade can't hand back some other gap
+       value from elsewhere in this file. */
+    gap: 0 !important;
+    color: var(--color-ink);
+  }
+
+  .cache-inspector__hitrate input[type='range'] {
+    accent-color: var(--color-accent);
+  }
+
+  /* flex gap on the parent measured as computed but rendered as zero space next to this native
+     control - margin-right on the control itself doesn't depend on the parent's gap
+     implementation agreeing with a native input's intrinsic box the way a regular element would,
+     so it renders correctly regardless of that mismatch. */
+  .cache-inspector__form input[type='radio'] {
+    accent-color: var(--color-accent);
+    margin: 0 var(--space-3) 0 0;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  .cache-inspector__results table {
+    font-size: var(--text-small);
+  }
+
+  .cache-inspector__results th {
+    text-align: left;
+    font-weight: 400;
+    color: var(--color-ink-muted);
+    padding: var(--space-2) var(--space-4) var(--space-2) 0;
+    border-bottom: var(--border-hairline);
+  }
+
+  .cache-inspector__results td {
+    text-align: right;
+    font-family: var(--font-mono);
+    padding: var(--space-2) 0;
+    border-bottom: var(--border-hairline);
+  }
+
+  .cache-inspector__highlight th,
+  .cache-inspector__highlight td {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  .cache-inspector__bar-track {
+    margin-top: var(--space-4);
+    height: 6px;
+    background: var(--color-rule);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .cache-inspector__bar-fill {
+    height: 100%;
+    background: var(--color-accent);
+    transition: width 0.2s ease;
+  }
+
+  .cache-inspector__note {
+    margin-top: var(--space-3);
+    font-size: var(--text-micro);
+    color: var(--color-ink-muted);
+  }
+</style>
+
+<script>
+  import { computeCacheEconomics } from '../utils/cache-math';
+
+  const filesInput = document.getElementById('ci-files') as HTMLInputElement;
+  const chunksInput = document.getElementById('ci-chunks') as HTMLInputElement;
+  const tokensInput = document.getElementById('ci-tokens') as HTMLInputElement;
+  const langsInput = document.getElementById('ci-langs') as HTMLInputElement;
+  const hitRateInput = document.getElementById('ci-hitrate') as HTMLInputElement;
+  const hitRateValue = document.getElementById('ci-hitrate-value') as HTMLOutputElement;
+  const incrementalRadio = document.getElementById('ci-runtype-incremental') as HTMLInputElement;
+  const firstRunRadio = document.getElementById('ci-runtype-firstrun') as HTMLInputElement;
+
+  const outPairs = document.getElementById('ci-out-pairs')!;
+  const outUncached = document.getElementById('ci-out-uncached')!;
+  const outTokensNoCache = document.getElementById('ci-out-tokens-nocache')!;
+  const outTokensWithCache = document.getElementById('ci-out-tokens-withcache')!;
+  const outTokensSaved = document.getElementById('ci-out-tokens-saved')!;
+  const outPercent = document.getElementById('ci-out-percent')!;
+  const outCostNoCache = document.getElementById('ci-out-cost-nocache')!;
+  const outCostWithCache = document.getElementById('ci-out-cost-withcache')!;
+  const barFill = document.getElementById('ci-bar-fill')!;
+
+  const intFormatter = new Intl.NumberFormat('en-US');
+  const usd = (n: number) => `$${n.toFixed(2)}`;
+
+  function recompute() {
+    const firstRun = firstRunRadio.checked;
+    hitRateInput.disabled = firstRun;
+
+    const result = computeCacheEconomics({
+      fileCount: Number(filesInput.value) || 0,
+      chunksPerFile: Number(chunksInput.value) || 0,
+      tokensPerChunk: Number(tokensInput.value) || 0,
+      languageCount: Number(langsInput.value) || 0,
+      hitRatePercent: Number(hitRateInput.value) || 0,
+      firstRun,
+    });
+
+    hitRateValue.textContent = `${firstRun ? 0 : hitRateInput.value}%`;
+    outPairs.textContent = intFormatter.format(result.pairs);
+    outUncached.textContent = intFormatter.format(result.uncachedPairs);
+    outTokensNoCache.textContent = intFormatter.format(result.tokensNoCache);
+    outTokensWithCache.textContent = intFormatter.format(result.tokensWithCache);
+    outTokensSaved.textContent = intFormatter.format(result.tokensSaved);
+    outPercent.textContent = `${result.percentSaved.toFixed(0)}%`;
+    outCostNoCache.textContent = usd(result.costNoCache);
+    outCostWithCache.textContent = usd(result.costWithCache);
+    barFill.style.width = `${result.percentSaved}%`;
+  }
+
+  for (const el of [filesInput, chunksInput, tokensInput, langsInput, hitRateInput, incrementalRadio, firstRunRadio]) {
+    el.addEventListener('input', recompute);
+  }
+</script>

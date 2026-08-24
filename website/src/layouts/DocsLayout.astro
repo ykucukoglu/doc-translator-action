@@ -1,0 +1,111 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import TableOfContents from '../components/TableOfContents.astro';
+import '../styles/prose.css';
+
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+interface Props {
+  title: string;
+  description: string;
+  headings?: Heading[];
+}
+const { title, description, headings = [] } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="container docs-grid">
+    <Sidebar currentPath={Astro.url.pathname} />
+    <article class="prose">
+      <h1>{title}</h1>
+      <slot />
+    </article>
+    <TableOfContents headings={headings} />
+  </div>
+</BaseLayout>
+
+<style>
+  /* Reuses the shared .container width (see global.css) so header/footer/docs all agree on one
+     page width instead of maintaining a second, competing measurement. The prose column still
+     caps its own line length via .prose's max-width (see prose.css), so a wide outer container
+     doesn't hurt readability - it just gives the sidebar/TOC room to sit at a comfortable
+     distance from the edges instead of everything huddling in the left third of the screen.
+
+     Single column by default, all the way up to the 3-column breakpoint below - there is no
+     middle "2 explicit columns, 3 grid items" state. That gap used to exist here (a 2-column
+     base plus a min-width:64rem 3-column override) and, between the two, silently dropped the
+     TOC onto a new implicit row below everything else - CSS Grid falls back to auto-flow when
+     there are more items than explicit tracks, it doesn't share this container's page-nav intent
+     with the reader. Matching the sidebar/TOC's own collapse breakpoint (63.9375rem, see their
+     component styles) instead of using a second, uncoordinated 48rem cutoff closes that gap. */
+  .docs-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    /* start, not the grid default of stretch - a stretched grid item is exactly as tall as the
+       row itself, leaving no room for position:sticky (on .docs-sidebar/.toc) to have anywhere
+       left to move to before it "sticks". */
+    align-items: start;
+    gap: var(--space-6);
+    padding-block: var(--space-12);
+  }
+
+  .docs-grid > .prose {
+    min-width: 0;
+  }
+
+  /* DOM order is sidebar -> article -> TOC (so a no-CSS/no-JS reader still hits the page nav
+     before the content, and screen readers announce it in a sensible sequence) - but visually
+     stacking a page-picker list before the reader has seen any of THIS page's own content would
+     be backwards if it weren't a compact, closed-by-default disclosure (see Sidebar.astro /
+     TableOfContents.astro) - collapsed, it costs one line each, so being first costs nothing and
+     saves a full scroll-to-the-bottom to reach either one. */
+  .docs-grid > .prose {
+    order: 2;
+  }
+  .docs-grid :global(.docs-sidebar) {
+    order: 1;
+  }
+  .docs-grid :global(.toc) {
+    order: 1;
+  }
+
+  @media (min-width: 64rem) {
+    .docs-grid {
+      grid-template-columns: 14rem minmax(0, 1fr) 14rem;
+      gap: var(--space-16);
+    }
+    .docs-grid > .prose,
+    .docs-grid :global(.docs-sidebar),
+    .docs-grid :global(.toc) {
+      order: initial;
+    }
+  }
+</style>
+
+<script>
+  // Sidebar/TOC render as native <details>, open by default (see their own component markup) -
+  // that default is the safe, always-accessible fallback if this script never runs. Below the
+  // 3-column breakpoint, where they're a compact single-line disclosure rather than a full
+  // sticky column, closing them here trades that fallback for the better first-impression of a
+  // mobile visitor landing straight on the actual page title instead of two open lists.
+  //
+  // Driven by a matchMedia listener, not a one-time check on load - a live resize or tablet
+  // rotation crossing the breakpoint (not just a fresh page load at a given width) needs the
+  // same sync, or a details left closed by the mobile pass would render as a missing column
+  // when the layout switches to the desktop 3-column treatment.
+  const collapsibles = document.querySelectorAll<HTMLDetailsElement>('details[data-collapsible]');
+  const mobileQuery = window.matchMedia('(max-width: 63.9375rem)');
+
+  const syncCollapsedState = (isMobile: boolean) => {
+    collapsibles.forEach((el) => {
+      el.open = !isMobile;
+    });
+  };
+
+  syncCollapsedState(mobileQuery.matches);
+  mobileQuery.addEventListener('change', (event) => syncCollapsedState(event.matches));
+</script>

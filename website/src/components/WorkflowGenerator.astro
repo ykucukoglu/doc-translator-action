@@ -1,0 +1,586 @@
+---
+import { buildWorkflowYaml, secretsNeeded, DEFAULT_WORKFLOW_STATE } from '../utils/workflow-template';
+
+const initialYaml = buildWorkflowYaml(DEFAULT_WORKFLOW_STATE);
+const initialSecrets = secretsNeeded(DEFAULT_WORKFLOW_STATE);
+---
+
+<section class="workflow-generator" aria-labelledby="workflow-generator-heading" id="workflow-generator">
+  <h3 id="workflow-generator-heading">Workflow generator</h3>
+  <p class="workflow-generator__lede">
+    Every field below maps 1:1 to a real <code>action.yml</code> input. The output is a complete,
+    ready-to-paste workflow file — never a placeholder API key.
+  </p>
+
+  <div class="workflow-generator__grid">
+    <form class="workflow-generator__form" aria-label="Workflow options" id="wg-form">
+      <label>
+        <span>LLM provider</span>
+        <select id="wg-provider">
+          <option value="auto">Auto-detect (exactly one key set)</option>
+          <option value="gemini" selected>Gemini</option>
+          <option value="openai">OpenAI</option>
+          <option value="claude">Claude</option>
+          <option value="azure-openai">Azure OpenAI</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Target languages</span>
+        <input type="text" id="wg-langs" value="tr" placeholder="tr,de,fr" />
+      </label>
+
+      <fieldset class="workflow-generator__recipe">
+        <legend>Docs layout</legend>
+        <label class="workflow-generator__radio">
+          <input type="radio" name="wg-recipe" value="standard" checked />
+          <span>Standard (<code>docs/&#123;lang&#125;/...</code>)</span>
+        </label>
+        <label class="workflow-generator__radio">
+          <input type="radio" name="wg-recipe" value="docusaurus" />
+          <span>Docusaurus</span>
+        </label>
+        <label class="workflow-generator__radio">
+          <input type="radio" name="wg-recipe" value="starlight" />
+          <span>Astro Starlight</span>
+        </label>
+        <label class="workflow-generator__radio">
+          <input type="radio" name="wg-recipe" value="mkdocs" />
+          <span>MkDocs (co-located)</span>
+        </label>
+        <label class="workflow-generator__radio">
+          <input type="radio" name="wg-recipe" value="custom" />
+          <span>Custom…</span>
+        </label>
+      </fieldset>
+
+      <label id="wg-custom-template-row" hidden>
+        <span>Custom output-path-template</span>
+        <input type="text" id="wg-custom-template" placeholder="&#123;dir&#125;/&#123;filename&#125;.&#123;lang&#125;.&#123;ext&#125;" />
+      </label>
+
+      <label>
+        <span>Source path</span>
+        <input type="text" id="wg-source-path" value="docs" />
+      </label>
+
+      <fieldset class="workflow-generator__runmode">
+        <legend>Run mode</legend>
+        <label class="workflow-generator__radio">
+          <input type="radio" name="wg-runmode" value="pr" checked />
+          <span>Open a pull request</span>
+        </label>
+        <label class="workflow-generator__radio">
+          <input type="radio" name="wg-runmode" value="dry-run" />
+          <span>Dry run (write locally only)</span>
+        </label>
+      </fieldset>
+      <p class="workflow-generator__hint" id="wg-runmode-note" hidden>
+        Ignores run mode — <code>push-to-current-branch</code> commits directly onto the checked-out branch.
+      </p>
+
+      <label class="workflow-generator__checkbox">
+        <input type="checkbox" id="wg-cache" checked />
+        <span>Persist translation cache across runs (recommended)</span>
+      </label>
+      <p class="workflow-generator__hint">Without this step, every run starts from an empty cache and re-translates unrelated unchanged chunks.</p>
+
+      <label class="workflow-generator__checkbox">
+        <input type="checkbox" id="wg-backfill" />
+        <span>Backfill pre-existing docs on first run</span>
+      </label>
+      <p class="workflow-generator__hint">Nothing "changed" in any one commit for docs that already existed before this action was added — this translates them anyway, once.</p>
+
+      <details class="workflow-generator__advanced">
+        <summary>Advanced configuration</summary>
+
+        <label>
+          <span>Fallback provider</span>
+          <select id="wg-fallback">
+            <option value="">None</option>
+            <option value="gemini">Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="claude">Claude</option>
+            <option value="azure-openai">Azure OpenAI</option>
+          </select>
+        </label>
+
+        <label id="wg-gemini-model-row">
+          <span>Gemini model</span>
+          <input type="text" id="wg-gemini-model" placeholder="gemini-2.5-flash" />
+        </label>
+        <label id="wg-openai-model-row" hidden>
+          <span>OpenAI model</span>
+          <input type="text" id="wg-openai-model" placeholder="gpt-5-mini" />
+        </label>
+        <label id="wg-openai-base-url-row" hidden>
+          <span>OpenAI base URL (local/free models)</span>
+          <input type="text" id="wg-openai-base-url" placeholder="http://localhost:11434/v1" />
+        </label>
+        <label id="wg-claude-model-row" hidden>
+          <span>Claude model</span>
+          <input type="text" id="wg-claude-model" placeholder="claude-sonnet-5" />
+        </label>
+        <label id="wg-azure-endpoint-row" hidden>
+          <span>Azure OpenAI endpoint</span>
+          <input type="text" id="wg-azure-endpoint" placeholder="https://your-resource.openai.azure.com/" />
+        </label>
+        <label id="wg-azure-deployment-row" hidden>
+          <span>Azure OpenAI deployment</span>
+          <input type="text" id="wg-azure-deployment" placeholder="my-deployment" />
+        </label>
+
+        <label>
+          <span>Max parallel requests</span>
+          <input type="number" id="wg-max-parallel" value="4" min="1" />
+        </label>
+        <label>
+          <span>Max batch tokens</span>
+          <input type="number" id="wg-max-batch" value="4000" min="500" />
+        </label>
+        <label>
+          <span>Source language</span>
+          <input type="text" id="wg-source-lang" value="auto" />
+        </label>
+
+        <label class="workflow-generator__checkbox">
+          <input type="checkbox" id="wg-mermaid" />
+          <span>Translate Mermaid diagram labels</span>
+        </label>
+        <label class="workflow-generator__checkbox">
+          <input type="checkbox" id="wg-frontmatter" />
+          <span>Translate frontmatter title/description/sidebar_label</span>
+        </label>
+        <label class="workflow-generator__checkbox">
+          <input type="checkbox" id="wg-push-current-branch" />
+          <span>Push to current branch (ChatOps, no new PR)</span>
+        </label>
+        <label class="workflow-generator__checkbox">
+          <input type="checkbox" id="wg-fail-on-stale" />
+          <span>Fail the run on stale translations</span>
+        </label>
+        <label class="workflow-generator__checkbox">
+          <input type="checkbox" id="wg-cleanup-branches" checked />
+          <span>Clean up stale <code>doc-translator/&lt;sha&gt;</code> branches</span>
+        </label>
+        <label>
+          <span>Base branch (optional)</span>
+          <input type="text" id="wg-base-branch" placeholder="defaults to GITHUB_BASE_REF" />
+        </label>
+      </details>
+    </form>
+
+    <div class="workflow-generator__output">
+      <div class="workflow-generator__secrets" role="note">
+        <p class="eyebrow">Secrets you'll need</p>
+        <ul id="wg-secrets-list">
+          {initialSecrets.map((s) => <li><code>{s}</code></li>)}
+        </ul>
+      </div>
+
+      <div class="workflow-generator__pre-wrap">
+        <div class="workflow-generator__pre-toolbar">
+          <span class="workflow-generator__filename">.github/workflows/translate.yml</span>
+          <button type="button" id="wg-copy-btn" data-state="idle" aria-label="Copy workflow YAML to clipboard">
+            <svg class="wg-icon wg-icon-copy" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <rect x="5.5" y="5.5" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.2" />
+              <path d="M3 10.5V3a1 1 0 0 1 1-1h7.5" stroke="currentColor" stroke-width="1.2" />
+            </svg>
+            <svg class="wg-icon wg-icon-check" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span>Copy</span>
+          </button>
+        </div>
+        <pre id="wg-yaml">{initialYaml}</pre>
+        <span class="visually-hidden" role="status" aria-live="polite" id="wg-copy-status"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .workflow-generator {
+    margin-top: var(--space-8);
+    border: var(--border-hairline);
+    border-radius: var(--radius-md);
+    padding: var(--space-6);
+  }
+
+  .workflow-generator__lede {
+    margin-top: var(--space-2);
+    color: var(--color-ink-muted);
+    max-width: 40rem;
+  }
+
+  .workflow-generator__grid {
+    margin-top: var(--space-6);
+    display: grid;
+    /* minmax(0, 1fr), not the implicit auto-sized single column a bare `display: grid` defaults
+       to below the breakpoint - an auto track sizes itself to its content's intrinsic width (the
+       generated <pre> or a wide select), which can force the whole grid wider than its own
+       container instead of wrapping/scrolling inside it. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+
+  @media (min-width: 64rem) {
+    .workflow-generator__grid {
+      grid-template-columns: 20rem minmax(0, 1fr);
+    }
+  }
+
+  .workflow-generator__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    font-size: var(--text-small);
+  }
+
+  .workflow-generator__form > label,
+  .workflow-generator__advanced > label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    color: var(--color-ink-muted);
+  }
+
+  .workflow-generator__form input[type='text'],
+  .workflow-generator__form input[type='number'],
+  .workflow-generator__form select,
+  .workflow-generator__advanced input[type='text'],
+  .workflow-generator__advanced input[type='number'],
+  .workflow-generator__advanced select {
+    padding: var(--space-2) var(--space-3);
+    border: var(--border-hairline);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    /* Below 16px, iOS Safari zooms the whole page in on focus - the label above can stay small,
+       but the control itself needs to clear that threshold. */
+    font-size: 1rem;
+  }
+
+  /* The native select arrow is drawn by the OS, not this design system - a plain gray triangle
+     that clashes with the hairline-border, no-shadow language everywhere else. Two literal-color
+     SVGs (light/dark), not one colored via a CSS variable, because a value inside a data-URI
+     background-image can't resolve the page's custom properties - it's a separate resource. */
+  .workflow-generator__form select,
+  .workflow-generator__advanced select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: var(--space-8);
+    background-repeat: no-repeat;
+    background-position: right var(--space-3) center;
+    background-size: 0.7rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' stroke='%238a93a0' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
+  :global([data-theme='light']) .workflow-generator__form select,
+  :global([data-theme='light']) .workflow-generator__advanced select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' stroke='%235b6470' stroke-width='1.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
+  fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  fieldset legend {
+    padding: 0;
+    color: var(--color-ink-muted);
+    margin-bottom: var(--space-1);
+  }
+
+  /* !important, deliberately: ".workflow-generator__form > label" picks up a "label" type
+     selector that Astro's scoping then duplicates a scoping attribute onto (once per simple
+     selector in that chain), landing at a higher specificity than even a doubled class here can
+     beat - the type selector alone outranks any number of chained classes once every other tier
+     ties, and which selector "wins" in Astro's compiled output has proven inconsistent even
+     between the two selectors in this same list. !important on these two properties only ends
+     the fight for good instead of leaving something that "wins" only until the next unrelated
+     CSS edit shifts a selector's compiled form. */
+  .workflow-generator__radio.workflow-generator__radio,
+  .workflow-generator__checkbox.workflow-generator__checkbox {
+    flex-direction: row !important;
+    align-items: center !important;
+    /* 0, not a value here - spacing comes from margin-right on the input itself below, since
+       flex gap measured as computed but rendered as zero space next to these native controls.
+       Explicit 0 (not just omitting this line) so the cascade can't hand back some other gap
+       value from elsewhere in this file. */
+    gap: 0 !important;
+    color: var(--color-ink);
+  }
+
+  /* flex gap on the parent measured as computed but rendered as zero space next to these two
+     specific native controls - a real, reproducible gap between what getComputedStyle reports
+     and what actually renders for a replaced form element as a flex child. margin-right on the
+     control itself doesn't depend on the parent's gap implementation agreeing with a native
+     input's intrinsic box the same way a regular element would, so it renders correctly
+     regardless of that mismatch. */
+  .workflow-generator__form input[type='radio'],
+  .workflow-generator__form input[type='checkbox'],
+  .workflow-generator__advanced input[type='radio'],
+  .workflow-generator__advanced input[type='checkbox'] {
+    accent-color: var(--color-accent);
+    margin: 0 var(--space-3) 0 0;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  .workflow-generator__hint {
+    margin: calc(var(--space-2) * -1) 0 0;
+    font-size: var(--text-micro);
+    color: var(--color-ink-muted);
+  }
+
+  .workflow-generator__advanced {
+    border-top: var(--border-hairline);
+    padding-top: var(--space-4);
+  }
+
+  .workflow-generator__advanced summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--color-ink);
+    margin-bottom: var(--space-4);
+  }
+
+  .workflow-generator__advanced[open] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* margin-top on "> * + *", not `gap` on the flex container above: reproduced directly in this
+     browser engine as a `<details>`-specific quirk - a `<details open>` with `display: flex`
+     reports its `gap` as correctly applied via getComputedStyle, but renders every child flush
+     against the next with zero space regardless of the gap value. A plain `<div>` with the exact
+     same flex/gap declarations doesn't have this problem, so the fix is scoped to this element
+     rather than flex gap in general. `* + *` also conveniently skips the first child (`<summary>`)
+     without needing to name it, since nothing precedes it to match the `+` combinator against. */
+  .workflow-generator__advanced[open] > * + * {
+    margin-top: var(--space-4);
+  }
+
+  .workflow-generator__secrets {
+    border: var(--border-hairline);
+    border-radius: var(--radius-sm);
+    padding: var(--space-4);
+    background: var(--color-bg-raised);
+  }
+
+  .workflow-generator__secrets ul {
+    list-style: none;
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-small);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .workflow-generator__pre-wrap {
+    margin-top: var(--space-4);
+    border: var(--border-hairline);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .workflow-generator__pre-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-bg-raised);
+    border-bottom: var(--border-hairline);
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+  }
+
+  .workflow-generator__filename {
+    color: var(--color-ink-muted);
+  }
+
+  #wg-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border: var(--border-hairline);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+  }
+
+  #wg-copy-btn:hover {
+    background: var(--color-bg-raised);
+  }
+
+  .wg-icon-check {
+    color: var(--color-accent);
+    display: none;
+  }
+
+  #wg-copy-btn[data-state='copied'] .wg-icon-copy {
+    display: none;
+  }
+  #wg-copy-btn[data-state='copied'] .wg-icon-check {
+    display: inline;
+  }
+
+  #wg-yaml {
+    margin: 0;
+    padding: var(--space-4);
+    max-height: 28rem;
+    overflow: auto;
+    /* Fixed dark code surface (see tokens.css) - the toolbar above still adapts to the page
+       theme, the generated YAML itself reads as code regardless of it. */
+    background: var(--color-code-bg);
+    color: var(--color-code-ink);
+    font-size: var(--text-code);
+    line-height: 1.6;
+    white-space: pre;
+  }
+</style>
+
+<script>
+  import { buildWorkflowYaml, secretsNeeded, DEFAULT_WORKFLOW_STATE, type WorkflowState, type Provider } from '../utils/workflow-template';
+
+  const form = document.getElementById('wg-form') as HTMLFormElement;
+  const yamlEl = document.getElementById('wg-yaml')!;
+  const secretsList = document.getElementById('wg-secrets-list')!;
+  const copyBtn = document.getElementById('wg-copy-btn') as HTMLButtonElement;
+  const copyStatus = document.getElementById('wg-copy-status')!;
+  const runmodeNote = document.getElementById('wg-runmode-note')!;
+  const customTemplateRow = document.getElementById('wg-custom-template-row')!;
+
+  const providerFieldRows: Record<string, HTMLElement> = {
+    gemini: document.getElementById('wg-gemini-model-row')!,
+    openai: document.getElementById('wg-openai-model-row')!,
+    claude: document.getElementById('wg-claude-model-row')!,
+    'azure-openai': document.getElementById('wg-azure-endpoint-row')!,
+  };
+  const openaiBaseUrlRow = document.getElementById('wg-openai-base-url-row')!;
+  const azureDeploymentRow = document.getElementById('wg-azure-deployment-row')!;
+
+  const RECIPE_SOURCE_PATH: Record<string, string> = {
+    standard: 'docs',
+    docusaurus: 'docs',
+    starlight: 'src/content/docs',
+    mkdocs: 'docs',
+  };
+
+  function readState(): WorkflowState {
+    const provider = (form.querySelector('#wg-provider') as HTMLSelectElement).value as Provider;
+    const recipe = (form.querySelector('input[name="wg-recipe"]:checked') as HTMLInputElement).value as WorkflowState['outputRecipe'];
+    const runMode = (form.querySelector('input[name="wg-runmode"]:checked') as HTMLInputElement).value as WorkflowState['runMode'];
+
+    return {
+      ...DEFAULT_WORKFLOW_STATE,
+      provider,
+      targetLanguages: (document.getElementById('wg-langs') as HTMLInputElement).value,
+      outputRecipe: recipe,
+      customOutputPathTemplate: (document.getElementById('wg-custom-template') as HTMLInputElement).value,
+      sourcePath: (document.getElementById('wg-source-path') as HTMLInputElement).value,
+      runMode,
+      persistCache: (document.getElementById('wg-cache') as HTMLInputElement).checked,
+      backfill: (document.getElementById('wg-backfill') as HTMLInputElement).checked,
+      fallbackProvider: (document.getElementById('wg-fallback') as HTMLSelectElement).value as Provider | '',
+      geminiModel: (document.getElementById('wg-gemini-model') as HTMLInputElement).value,
+      openaiModel: (document.getElementById('wg-openai-model') as HTMLInputElement).value,
+      openaiBaseUrl: (document.getElementById('wg-openai-base-url') as HTMLInputElement).value,
+      claudeModel: (document.getElementById('wg-claude-model') as HTMLInputElement).value,
+      azureEndpoint: (document.getElementById('wg-azure-endpoint') as HTMLInputElement).value,
+      azureDeployment: (document.getElementById('wg-azure-deployment') as HTMLInputElement).value,
+      maxParallelRequests: Number((document.getElementById('wg-max-parallel') as HTMLInputElement).value) || 4,
+      maxBatchTokens: Number((document.getElementById('wg-max-batch') as HTMLInputElement).value) || 4000,
+      sourceLanguage: (document.getElementById('wg-source-lang') as HTMLInputElement).value || 'auto',
+      translateMermaid: (document.getElementById('wg-mermaid') as HTMLInputElement).checked,
+      translateFrontmatter: (document.getElementById('wg-frontmatter') as HTMLInputElement).checked,
+      pushToCurrentBranch: (document.getElementById('wg-push-current-branch') as HTMLInputElement).checked,
+      failOnStale: (document.getElementById('wg-fail-on-stale') as HTMLInputElement).checked,
+      cleanupStaleBranches: (document.getElementById('wg-cleanup-branches') as HTMLInputElement).checked,
+      baseBranch: (document.getElementById('wg-base-branch') as HTMLInputElement).value,
+    };
+  }
+
+  function syncVisibility(state: WorkflowState) {
+    customTemplateRow.hidden = state.outputRecipe !== 'custom';
+
+    for (const [key, row] of Object.entries(providerFieldRows)) {
+      row.hidden = state.provider !== key;
+    }
+    openaiBaseUrlRow.hidden = state.provider !== 'openai';
+    azureDeploymentRow.hidden = state.provider !== 'azure-openai';
+
+    runmodeNote.hidden = !state.pushToCurrentBranch;
+    (form.querySelectorAll('input[name="wg-runmode"]') as NodeListOf<HTMLInputElement>).forEach((el) => {
+      el.disabled = state.pushToCurrentBranch;
+    });
+
+    if (state.outputRecipe !== 'custom') {
+      const sourcePathInput = document.getElementById('wg-source-path') as HTMLInputElement;
+      sourcePathInput.value = RECIPE_SOURCE_PATH[state.outputRecipe] ?? 'docs';
+    }
+  }
+
+  function recompute() {
+    const state = readState();
+    syncVisibility(state);
+    // Re-read after syncVisibility may have adjusted source-path for a recipe change.
+    const finalState = readState();
+
+    yamlEl.textContent = buildWorkflowYaml(finalState);
+
+    secretsList.innerHTML = '';
+    for (const secret of secretsNeeded(finalState)) {
+      const li = document.createElement('li');
+      const code = document.createElement('code');
+      code.textContent = secret;
+      li.appendChild(code);
+      secretsList.appendChild(li);
+    }
+  }
+
+  form.addEventListener('input', recompute);
+  form.addEventListener('change', recompute);
+
+  let copyResetTimer: ReturnType<typeof setTimeout> | undefined;
+
+  copyBtn.addEventListener('click', async () => {
+    const text = yamlEl.textContent ?? '';
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        copyStatus.textContent = 'Copied to clipboard';
+      } else {
+        const range = document.createRange();
+        range.selectNodeContents(yamlEl);
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        copyStatus.textContent = 'Selected — press Ctrl/Cmd+C';
+      }
+      copyBtn.dataset.state = 'copied';
+    } catch {
+      copyStatus.textContent = 'Copy failed — select the text manually';
+    }
+
+    clearTimeout(copyResetTimer);
+    copyResetTimer = setTimeout(() => {
+      copyBtn.dataset.state = 'idle';
+      copyStatus.textContent = '';
+    }, 2000);
+  });
+
+  recompute();
+</script>

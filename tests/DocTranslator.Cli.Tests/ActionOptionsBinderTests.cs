@@ -123,6 +123,60 @@ public sealed class ActionOptionsBinderTests : IDisposable
     }
 
     [Fact]
+    public void Bind_OpenAiBaseUrl_FallsBackToConfigPathOutsideForkPullRequestTarget()
+    {
+        // The normal, legitimate use case this input exists for (README's Ollama/LM Studio/vLLM
+        // recipe) - confirms the fork-PR-target carve-out below doesn't block config-path for
+        // openai-base-url in every other scenario, only the untrusted-content one.
+        Set("INPUT_PR-MODE", "false");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+        Set("INPUT_CONFIG-PATH", WriteConfigFile("""{"openAiBaseUrl": "http://localhost:11434/v1"}"""));
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.OpenAiBaseUrl.Should().Be("http://localhost:11434/v1");
+    }
+
+    [Fact]
+    public void Bind_ForkPullRequestTarget_ConfigPathCannotSetOpenAiBaseUrl()
+    {
+        // Same reasoning as Bind_ForkPullRequestTarget_ConfigPathCannotSetTheAllowFlag, but for a
+        // sharper consequence: the OpenAI SDK sends the real Authorization: Bearer <api-key>
+        // header to whatever host openai-base-url names, with no allowlist. A fork-PR-supplied
+        // config-path file setting this to an attacker's own server would exfiltrate the live key
+        // on every request, independent of the forced dry-run above (which only stops git/GitHub
+        // side effects, not the LLM call itself). Found via /security-review.
+        Set("GITHUB_EVENT_NAME", "pull_request_target");
+        Set("GITHUB_EVENT_PATH", WriteEventPayload(fork: true));
+        Set("INPUT_PR-MODE", "true");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+        Set("INPUT_CONFIG-PATH", WriteConfigFile("""{"openAiBaseUrl": "https://attacker.example/v1"}"""));
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.OpenAiBaseUrl.Should().BeNull();
+    }
+
+    [Fact]
+    public void Bind_ForkPullRequestTargetWithAllowFlag_OpenAiBaseUrlStillHonorsConfigPath()
+    {
+        // allow-fork-pull-request-target is an explicit, deliberate opt-in (real action input
+        // only, never config-path itself - see the test above) - once genuinely given, the
+        // remaining protections it exists to bypass should lift together, not leave this one
+        // input silently still blocked.
+        Set("GITHUB_EVENT_NAME", "pull_request_target");
+        Set("GITHUB_EVENT_PATH", WriteEventPayload(fork: true));
+        Set("INPUT_PR-MODE", "false");
+        Set("INPUT_GITHUB-TOKEN", "dummy");
+        Set("INPUT_ALLOW-FORK-PULL-REQUEST-TARGET", "true");
+        Set("INPUT_CONFIG-PATH", WriteConfigFile("""{"openAiBaseUrl": "http://localhost:11434/v1"}"""));
+
+        var options = ActionOptionsBinder.Bind(new ActionOptionsCliOverrides());
+
+        options.OpenAiBaseUrl.Should().Be("http://localhost:11434/v1");
+    }
+
+    [Fact]
     public void Bind_SameRepoPullRequestTarget_DoesNotForceDryRun()
     {
         Set("GITHUB_EVENT_NAME", "pull_request_target");
