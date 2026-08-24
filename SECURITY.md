@@ -24,6 +24,8 @@ If your workflow uses `pull_request_target` (rather than `pull_request`), the jo
 
 This override is intentionally **not** readable from `config-path`. That file is read from the job's working directory - if your workflow checks out the fork PR's head commit (the only way this action would have anything of the PR's to translate under `pull_request_target`), a config file at your configured path is the fork author's own content. Honoring the override from there would let a malicious fork PR disable its own safety net.
 
+For the same reason, `openai-base-url` is also never honored from `config-path` in this scenario. Unlike the override above, this isn't about disabling the safety net - the forced dry-run still applies - but `openai-base-url` redirects the OpenAI SDK's `Authorization: Bearer <openai-api-key>` header to whatever host it names, with no allowlist. A fork-PR-supplied `config-path` file could otherwise point it at an attacker-controlled server and exfiltrate the live API key on every request, independent of whether anything gets pushed or committed.
+
 ## Supported versions
 
 Only the latest tagged release is supported. Since this action is consumed via `uses: ykucukoglu/doc-translator-action@v1`, pinning to a specific tag/SHA in your own workflow is the recommended way to control exactly which version you're running.

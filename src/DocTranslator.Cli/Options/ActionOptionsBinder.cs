@@ -68,7 +68,14 @@ public static class ActionOptionsBinder
         // Honoring the flag from there would let a fork PR disable the exact safety net meant to
         // stop it from using the base repo's secrets against itself.
         var allowForkPullRequestTarget = ParseBool(ReadInput("allow-fork-pull-request-target")) ?? false;
-        if (!dryRun && !allowForkPullRequestTarget && IsForkPullRequestTarget())
+
+        // Computed once and reused below for openai-base-url's own config-path carve-out (see its
+        // comment) rather than re-evaluated inline there - IsForkPullRequestTarget() parses the
+        // event payload from disk, and the condition below only short-circuits into calling it at
+        // all when dryRun isn't already true, so a naive second inline call at the OpenAiBaseUrl
+        // line wouldn't reliably observe the same result anyway.
+        var untrustedForkPullRequestTarget = !allowForkPullRequestTarget && IsForkPullRequestTarget();
+        if (!dryRun && untrustedForkPullRequestTarget)
         {
             Console.WriteLine("::warning::pull_request_target with a fork PR detected - forcing dry-run to avoid using repository secrets on untrusted content. Set allow-fork-pull-request-target: true if this is intentional.");
             dryRun = true;
@@ -98,7 +105,15 @@ public static class ActionOptionsBinder
             LlmFallbackProvider = ReadInput("llm-fallback-provider") ?? config?.LlmFallbackProvider,
             GeminiModel = ReadInput("gemini-model") ?? config?.GeminiModel,
             OpenAiModel = ReadInput("openai-model") ?? config?.OpenAiModel,
-            OpenAiBaseUrl = ReadInput("openai-base-url") ?? config?.OpenAiBaseUrl,
+            // Deliberately NOT read from config-path when this run is against untrusted fork
+            // content - same reasoning as allow-fork-pull-request-target above, but the stakes are
+            // sharper here: the OpenAI SDK sends the real Authorization: Bearer <openai-api-key>
+            // header to whatever host openai-base-url names, with no allowlist. A malicious
+            // fork-PR-supplied config-path file setting this to an attacker's own server would
+            // exfiltrate the live API key on every request - silently, and even while the
+            // forced dry-run above is correctly stopping the git/GitHub side of this same attack
+            // surface. Found via /security-review.
+            OpenAiBaseUrl = ReadInput("openai-base-url") ?? (untrustedForkPullRequestTarget ? null : config?.OpenAiBaseUrl),
             ClaudeModel = ReadInput("claude-model") ?? config?.ClaudeModel,
             TargetLanguages = targetLanguagesRaw
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
