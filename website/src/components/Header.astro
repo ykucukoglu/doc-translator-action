@@ -1,7 +1,6 @@
 ---
 import Wordmark from './Wordmark.astro';
 import ThemeToggle from './ThemeToggle.astro';
-import LanguageSwitcher from './LanguageSwitcher.astro';
 import { nav } from '../nav.config';
 import { withBase } from '../utils/url';
 
@@ -37,10 +36,7 @@ const currentPath = Astro.url.pathname;
       </a>
     </nav>
 
-    <div class="site-header__controls">
-      <LanguageSwitcher />
-      <ThemeToggle />
-    </div>
+    <ThemeToggle />
   </div>
 </header>
 
@@ -107,11 +103,5 @@ const currentPath = Astro.url.pathname;
 
   .site-header__github {
     font-family: var(--font-mono);
-  }
-
-  .site-header__controls {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
   }
 </style>
