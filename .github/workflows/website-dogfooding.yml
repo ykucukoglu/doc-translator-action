@@ -74,5 +74,14 @@ jobs:
           source-path: website/src/content/docs/en
           output-path-template: website/src/content/docs/{lang}/{relativePath}
           pr-mode: ${{ steps.mode.outputs.pr_mode }}
+          # Unlike dogfooding.yml's docs/ (edited across many commits, so the plain diff keeps
+          # catching up incrementally), every website doc landed in one single commit and hasn't
+          # been touched since - a plain diff against the previous commit finds nothing to
+          # translate, on every run, forever. backfill-missing-translations scans the whole
+          # source-path for any file/language pair with no output yet regardless of diff, which is
+          # exactly the semantics this workflow actually needs: keep the website's own docs
+          # translated, not just react to edits. Confirmed via a real run: without this, "Files
+          # translated: 0" even on a manual workflow_dispatch with nothing else changed.
+          backfill-missing-translations: true
           # Same free-tier per-minute rate limit reasoning as dogfooding.yml's identical setting.
           max-parallel-requests: 1
